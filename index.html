@@ -131,6 +131,10 @@
 
             // --- DEKLARACE VŠECH POMOCNÝCH FUNKCÍ ---
 
+            function sanitizeForId(text) {
+                return text.replace(/[^a-zA-Z0-9-_]/g, '_');
+            }
+
             function flattenData(data) {
                 let flat = {};
                 for (const key in data) {
@@ -381,7 +385,8 @@
                     const detail = asset.details[key];
                     const label = document.createElement('label');
                     label.textContent = key;
-                    label.htmlFor = `input-${assetId}-${key}`;
+                    const sanitizedKey = sanitizeForId(key);
+                    label.htmlFor = `input-${assetId}-${sanitizedKey}`;
                     
                     const inputContainer = document.createElement('div');
 
@@ -392,7 +397,7 @@
 
                         if (options && Array.isArray(checked)) {
                             options.forEach((option, index) => {
-                                const checkboxId = `input-${assetId}-${key}-${index}`;
+                                const checkboxId = `input-${assetId}-${sanitizedKey}-${index}`;
                                 const wrapper = document.createElement('div');
                                 wrapper.className = 'flex items-center';
                                 const checkbox = document.createElement('input');
@@ -410,7 +415,7 @@
                         }
                     } else if (detail.type === 'lawfulness') {
                         const select = document.createElement('select');
-                        select.id = `input-${assetId}-${key}`;
+                        select.id = `input-${assetId}-${sanitizedKey}`;
                         select.className = 'form-input';
                         sharedOptions.lawfulness.forEach(option => {
                             const optionEl = document.createElement('option');
@@ -426,7 +431,7 @@
                     } else if (detail.value !== undefined && typeof detail.value === 'string') {
                          const input = document.createElement('input');
                          input.type = 'text';
-                         input.id = `input-${assetId}-${key}`;
+                         input.id = `input-${assetId}-${sanitizedKey}`;
                          input.value = detail.value;
                          input.className = 'form-input';
                          inputContainer.appendChild(input);
@@ -472,6 +477,7 @@
 
                 for (const key in updatedDetails) {
                     const detail = updatedDetails[key];
+                    const sanitizedKey = sanitizeForId(key);
                     if ((detail.type === 'checkbox-list' && detail.optionsKey) || detail.type === 'security') {
                         let changed = false;
                         const checkedArray = detail.checked || detail.value;
@@ -479,7 +485,7 @@
                         const optionsKey = detail.optionsKey || (key.includes('elektronické') ? 'securityElectronic' : 'securityAnalog');
                         
                         sharedOptions[optionsKey].forEach((_, index) => {
-                            const checkbox = form.querySelector(`#input-${assetId}-${key}-${index}`);
+                            const checkbox = form.querySelector(`#input-${assetId}-${sanitizedKey}-${index}`);
                             if (checkbox) {
                                 if (checkedArray[index] !== checkbox.checked) {
                                     changed = true;
@@ -497,13 +503,13 @@
                             changedKeys.push(key);
                         }
                     } else if (detail.type === 'lawfulness') {
-                        const select = form.querySelector(`#input-${assetId}-${key}`);
+                        const select = form.querySelector(`#input-${assetId}-${sanitizedKey}`);
                         if (select && detail.value !== select.value) {
                             updatedDetails[key].value = select.value;
                             changedKeys.push(key);
                         }
                     } else if (detail.value !== undefined && typeof detail.value === 'string') {
-                        const input = form.querySelector(`#input-${assetId}-${key}`);
+                        const input = form.querySelector(`#input-${assetId}-${sanitizedKey}`);
                         if (input && detail.value !== input.value) {
                             updatedDetails[key].value = input.value;
                             changedKeys.push(key);
