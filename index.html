@@ -468,7 +468,7 @@
                                     const currentlyLinkedIds = Array.from(linkedContainer.children).map(div => div.dataset.systemId);
                                     
                                     selectEl.innerHTML = '<option value="">Vyberte systém...</option>';
-                                    const allSystems = allAssets['informacni-systemy']?.children || {};
+                                    const allSystems = assetData.primarni.children['informacni-systemy'].children;
 
                                     for (const systemId in allSystems) {
                                         if (!currentlyLinkedIds.includes(systemId)) {
