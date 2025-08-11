@@ -1,50 +1,25 @@
-// Importuje Firebase Admin SDK pro komunikaci s databází
+// netlify/functions/create-agenda.js
 const admin = require('firebase-admin');
 
-// Načte přístupové klíče k Firebase z proměnných prostředí Netlify
 const serviceAccount = JSON.parse(process.env.FIREBASE_CREDENTIALS);
+const databaseURL = process.env.FIREBASE_DATABASE_URL;
 
-// Inicializuje Firebase aplikaci, pokud ještě nebyla inicializována
 if (!admin.apps.length) {
   admin.initializeApp({
-    credential: admin.credential.cert(serviceAccount)
+    credential: admin.credential.cert(serviceAccount),
+    databaseURL: databaseURL
   });
 }
 
-const db = admin.firestore();
+const db = admin.database();
 
-// Handler funkce, která se spustí při zavolání z webové stránky
 exports.handler = async function(event, context) {
-    // Povoluje pouze metodu POST
     if (event.httpMethod !== 'POST') {
-        return { statusCode: 405, body: 'Metoda není povolena' };
+        return { statusCode: 405, body: 'Method Not Allowed' };
     }
-
-    try {
-        // Zpracuje data odeslaná z formuláře pro vytvoření nové agendy
-        const { parentId, newAgendaId, newAgendaData } = JSON.parse(event.body);
-        
-        //
-        // ZDE BUDE V BUDOUCNU LOGIKA PRO PŘIDÁNÍ NOVÉ AGENDY DO DATABÁZE
-        //
-        // Příklad:
-        // const docRef = db.collection('agendy').doc('data');
-        // const path = `children.${parentId}.children.${newAgendaId}`;
-        // await docRef.update({
-        //     [path]: newAgendaData
-        // });
-
-        // Vrací potvrzení o úspěšném vytvoření
-        return {
-            statusCode: 201, // 201 Created
-            body: JSON.stringify({ success: true, message: 'Agenda vytvořena (funkce je zatím pouze placeholder).' }),
-        };
-    } catch (error) {
-        console.error(error);
-        // V případě chyby vrací chybovou hlášku
-        return {
-            statusCode: 500,
-            body: JSON.stringify({ error: 'Nepodařilo se vytvořit agendu.' }),
-        };
-    }
+    // ... zbytek kódu pro vytvoření agendy
+    return {
+        statusCode: 201,
+        body: JSON.stringify({ success: true, message: 'Agenda vytvořena (funkce je zatím pouze placeholder).' }),
+    };
 };

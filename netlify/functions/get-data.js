@@ -1,12 +1,15 @@
 // netlify/functions/get-data.js
 const admin = require('firebase-admin');
 
+// Načte přihlašovací údaje z proměnných prostředí
 const serviceAccount = JSON.parse(process.env.FIREBASE_CREDENTIALS);
+const databaseURL = process.env.FIREBASE_DATABASE_URL;
 
+// Inicializuje Firebase aplikaci, pokud ještě nebyla inicializována
 if (!admin.apps.length) {
   admin.initializeApp({
     credential: admin.credential.cert(serviceAccount),
-    databaseURL: `https://${serviceAccount.project_id}.firebaseio.com`
+    databaseURL: databaseURL // Použije správnou URL z nastavení Netlify
   });
 }
 

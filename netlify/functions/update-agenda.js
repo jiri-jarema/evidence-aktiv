@@ -2,11 +2,12 @@
 const admin = require('firebase-admin');
 
 const serviceAccount = JSON.parse(process.env.FIREBASE_CREDENTIALS);
+const databaseURL = process.env.FIREBASE_DATABASE_URL;
 
 if (!admin.apps.length) {
   admin.initializeApp({
     credential: admin.credential.cert(serviceAccount),
-    databaseURL: `https://${serviceAccount.project_id}.firebaseio.com`
+    databaseURL: databaseURL
   });
 }
 
