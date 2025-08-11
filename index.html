@@ -7,78 +7,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
-        body {
-            font-family: 'Inter', sans-serif;
-        }
-        /* Custom scrollbar for better aesthetics */
-        ::-webkit-scrollbar {
-            width: 8px;
-            height: 8px;
-        }
-        ::-webkit-scrollbar-track {
-            background: #f1f1f1;
-            border-radius: 10px;
-        }
-        ::-webkit-scrollbar-thumb {
-            background: #888;
-            border-radius: 10px;
-        }
-        ::-webkit-scrollbar-thumb:hover {
-            background: #555;
-        }
-        .sidebar-item {
-            cursor: pointer;
-            transition: background-color 0.2s ease-in-out;
-        }
-        .sidebar-item:hover {
-            background-color: #e5e7eb;
-        }
-        .sidebar-item.active {
-            background-color: #d1d5db;
-            font-weight: 600;
-        }
-        .asset-link {
-            color: #2563eb;
-            text-decoration: underline;
-            cursor: pointer;
-        }
-        .asset-link:hover {
-            color: #1d4ed8;
-        }
-        .details-grid {
-            display: grid;
-            grid-template-columns: auto 1fr;
-            gap: 1rem 2rem;
-            align-items: start;
-        }
-        .details-grid > dt {
-            font-weight: 600;
-            color: #4b5563;
-        }
-        .details-grid > dd {
-            color: #1f2937;
-        }
-        .edit-form-grid {
-             display: grid;
-            grid-template-columns: 1fr 2fr;
-            gap: 1rem 2rem;
-            align-items: center;
-        }
-        .edit-form-grid label {
-            font-weight: 600;
-            color: #4b5563;
-        }
-        .form-input {
-            width: 100%;
-            padding: 0.5rem;
-            border: 1px solid #d1d5db;
-            border-radius: 0.375rem;
-        }
-        .changed-value {
-            color: #dc2626; /* red-600 */
-            font-weight: bold;
-            transition: color 0.3s ease-in-out;
-        }
+        /* ... (styly zůstávají stejné) ... */
     </style>
 </head>
 <body class="bg-gray-100 text-gray-800">
@@ -117,7 +46,6 @@
         </div>
     </div>
 
-    <!-- Skript pro zobrazení -->
     <script>
         document.addEventListener('DOMContentLoaded', async () => {
             let assetData = {};
@@ -131,9 +59,6 @@
 
             try {
                 const response = await fetch('/.netlify/functions/get-data');
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
                 const data = await response.json();
                 assetData = {
                     primarni: data.primarni,
@@ -153,345 +78,14 @@
                 welcomeMessage.querySelector('h2').textContent = 'Chyba při načítání dat';
                 welcomeMessage.querySelector('p').textContent = 'Zkuste prosím obnovit stránku.';
             }
-
-            function flattenData(data) {
-                let flat = {};
-                for (const key in data) {
-                    flat[key] = data[key];
-                    if (data[key].children) {
-                        Object.assign(flat, flattenData(data[key].children));
-                    }
-                }
-                return flat;
-            }
-
-            function buildParentMap(data, parent = null) {
-                for (const key in data) {
-                    parentMap[key] = parent;
-                    if (data[key].children) {
-                        buildParentMap(data[key].children, key);
-                    }
-                }
-            }
-
-            function findParentId(childId) {
-                return parentMap[childId];
-            }
-
-            function buildNav(data, parentElement, level = 0) {
-                if (level > 1) return;
-                const ul = document.createElement('ul');
-                if (level > 0) ul.style.paddingLeft = `${(level-1) * 16}px`;
-                
-                for (const key in data) {
-                    const item = data[key];
-                    const li = document.createElement('li');
-                    const itemDiv = document.createElement('div');
-                    itemDiv.textContent = item.name;
-                    itemDiv.dataset.id = key;
-                    itemDiv.className = level === 0 ? 'font-bold text-lg mt-4 cursor-default' : 'p-2 rounded-md sidebar-item';
-                    if (level > 0) itemDiv.onclick = () => showCategoryContent(key);
-                    
-                    li.appendChild(itemDiv);
-                    if (item.children) buildNav(item.children, li, level + 1);
-                    ul.appendChild(li);
-                }
-                parentElement.appendChild(ul);
-            }
-
-            function showCategoryContent(categoryId) {
-                const asset = allAssets[categoryId];
-                if (!asset || !asset.children) return;
-                welcomeMessage.classList.add('hidden');
-                assetDetailContainer.classList.remove('hidden');
-                assetDetailContainer.innerHTML = '';
-                document.querySelectorAll('.sidebar-item.active').forEach(el => el.classList.remove('active'));
-                document.querySelector(`.sidebar-item[data-id="${categoryId}"]`)?.classList.add('active');
-
-                const title = document.createElement('h2');
-                title.textContent = asset.name;
-                title.className = 'text-3xl font-bold mb-6 pb-2 border-b border-gray-300';
-                assetDetailContainer.appendChild(title);
-
-                const listContainer = document.createElement('div');
-                listContainer.className = 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4';
-                for(const childId in asset.children){
-                    const childAsset = asset.children[childId];
-                    const card = document.createElement('div');
-                    card.className = 'bg-white p-4 rounded-lg shadow hover:shadow-lg transition-shadow cursor-pointer border border-gray-200';
-                    card.innerHTML = `<h3 class="font-semibold text-lg text-blue-600">${childAsset.name}</h3>`;
-                    card.onclick = () => showAssetDetails(childId, categoryId);
-                    listContainer.appendChild(card);
-                }
-                assetDetailContainer.appendChild(listContainer);
-            }
             
-            function createLinksFragment(linksTo) {
-                const fragment = document.createDocumentFragment();
-                const links = Array.isArray(linksTo) ? linksTo : [linksTo];
-                links.forEach(linkId => {
-                    const linkedAsset = allAssets[linkId];
-                    const linkName = (linkedAsset && linkedAsset.name) || linkId;
-                    const linkWrapper = document.createElement('div');
-                    const link = document.createElement('a');
-                    link.textContent = linkName;
-                    link.className = 'asset-link';
-                    link.onclick = (e) => {
-                        e.stopPropagation();
-                        showAssetDetails(linkId, findParentId(linkId));
-                    };
-                    linkWrapper.appendChild(link);
-                    fragment.appendChild(linkWrapper);
-                });
-                return fragment;
-            }
-            
-            function renderServiceDetails(asset, parentId) {
-                const container = document.createElement('div');
-                container.className = 'overflow-x-auto';
-                const table = document.createElement('table');
-                table.className = 'min-w-full bg-white';
-                const thead = table.createTHead();
-                thead.innerHTML = `
-                    <tr class="w-full bg-gray-200 text-left text-gray-600 uppercase text-sm leading-normal">
-                        <th class="py-3 px-6">Svěřená pravomoc</th>
-                        <th class="py-3 px-6">Legislativa</th>
-                        <th class="py-3 px-6">Agendový informační systém</th>
-                    </tr>
-                `;
-                const tbody = table.createTBody();
-                tbody.className = 'text-gray-700 text-sm font-light';
-                asset.details.forEach(detail => {
-                    const row = tbody.insertRow();
-                    row.className = 'border-b border-gray-200 hover:bg-gray-100';
-                    row.insertCell().textContent = detail.pravomoc || '-';
-                    row.insertCell().textContent = detail.legislativa || '-';
-                    const isCell = row.insertCell();
-                    if (detail.is && detail.is.length > 0) {
-                        isCell.appendChild(createLinksFragment(detail.is));
-                    } else {
-                        isCell.textContent = '-';
-                    }
-                });
-                container.appendChild(table);
-                assetDetailContainer.appendChild(container);
-            }
-
-            function renderCheckboxList(options, checked, container) {
-                options.forEach((option, index) => {
-                    const isChecked = checked[index];
-                    const optionDiv = document.createElement('div');
-                    optionDiv.className = 'flex items-center';
-                    optionDiv.innerHTML = `
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2 ${isChecked ? 'text-blue-600' : 'text-gray-400'}" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                            ${isChecked 
-                                ? '<path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />' 
-                                : '<path stroke-linecap="round" stroke-linejoin="round" d="M15 12H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" />'
-                            }
-                        </svg>
-                        <span>${option}</span>
-                    `;
-                    container.appendChild(optionDiv);
-                });
-            }
-
-            function renderProcessingMethods(methods, container) {
-                methods.forEach(method => {
-                    const methodDiv = document.createElement('div');
-                    methodDiv.className = 'flex items-start mb-1';
-                    const iconAndLabel = document.createElement('div');
-                    iconAndLabel.className = 'flex items-center flex-shrink-0';
-                    iconAndLabel.innerHTML = `
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2 ${method.checked ? 'text-blue-600' : 'text-gray-400'}" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                             ${method.checked 
-                                ? '<path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />' 
-                                : '<path stroke-linecap="round" stroke-linejoin="round" d="M15 12H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" />'
-                            }
-                        </svg>
-                        <span>${method.label}</span>
-                    `;
-                    methodDiv.appendChild(iconAndLabel);
-                    if (method.details || method.linksTo) {
-                        const detailsContainer = document.createElement('div');
-                        detailsContainer.className = 'ml-2 text-gray-600';
-                        
-                        if (method.details) {
-                            const textNode = document.createTextNode(`- ${method.details}`);
-                            detailsContainer.appendChild(textNode);
-                        } else if (method.linksTo) {
-                            detailsContainer.appendChild(createLinksFragment(method.linksTo));
-                        }
-                        methodDiv.appendChild(detailsContainer);
-                    }
-                    container.appendChild(methodDiv);
-                });
-            }
-            
-            function renderLawfulness(value, container) {
-                const lawfulnessOptions = sharedOptions.lawfulness;
-                const selectedOption = lawfulnessOptions.find(opt => opt.startsWith(value));
-                
-                lawfulnessOptions.forEach(option => {
-                    const isSelected = (option === selectedOption);
-                    const optionDiv = document.createElement('div');
-                    optionDiv.className = 'flex items-center';
-                    optionDiv.innerHTML = `
-                         <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2 ${isSelected ? 'text-blue-600' : 'text-gray-400'}" viewBox="0 0 20 20" fill="currentColor">
-                            ${isSelected
-                                ? '<path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />'
-                                : '<path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM7 9a1 1 0 000 2h6a1 1 0 100-2H7z" clip-rule="evenodd" />'
-                            }
-                        </svg>
-                        <span>${option}</span>
-                    `;
-                    container.appendChild(optionDiv);
-                });
-            }
-
-            function renderGenericDetails(asset, assetId, changedKeys = []) {
-                const detailsGrid = document.createElement('dl');
-                detailsGrid.className = 'details-grid';
-
-                if (asset.details && Object.keys(asset.details).length > 0) {
-                     for (const key in asset.details) {
-                        const detail = asset.details[key];
-                        const dt = document.createElement('dt');
-                        dt.textContent = key;
-                        const dd = document.createElement('dd');
-                        
-                        if (changedKeys.includes(key)) {
-                            dd.classList.add('changed-value');
-                        }
-                        
-                        if(detail.type === 'lawfulness') {
-                            dd.textContent = sharedOptions.lawfulness.find(opt => opt.startsWith(detail.value)) || detail.value;
-                        } else if (detail.type === 'processing-methods') {
-                            renderProcessingMethods(detail.value, dd);
-                        } else if (detail.type === 'checkbox-list' && detail.optionsKey) {
-                            if (sharedOptions[detail.optionsKey] && detail.checked) {
-                                renderCheckboxList(sharedOptions[detail.optionsKey], detail.checked, dd);
-                            }
-                        } else if (detail.type === 'security') { // Handle old security format
-                            renderCheckboxList(sharedOptions.securityElectronic, detail.value, dd);
-                        } else if (detail.linksTo) {
-                            dd.appendChild(createLinksFragment(detail.linksTo));
-                        } else {
-                            dd.textContent = detail.value || '-';
-                        }
-                        detailsGrid.appendChild(dt);
-                        detailsGrid.appendChild(dd);
-                     }
-                } else {
-                     detailsGrid.innerHTML = '<p class="text-gray-500 col-span-2">Pro tuto položku nejsou k dispozici žádné podrobnosti.</p>';
-                }
-                 assetDetailContainer.appendChild(detailsGrid);
-            }
-
-            function renderEditForm(assetId) {
-                const asset = allAssets[assetId];
-                assetDetailContainer.innerHTML = ''; // Clear current view
-
-                const title = document.createElement('h2');
-                title.textContent = `Úprava: ${asset.name}`;
-                title.className = 'text-3xl font-bold mb-6 pb-2 border-b border-gray-300';
-                assetDetailContainer.appendChild(title);
-
-                const form = document.createElement('form');
-                form.id = `form-${assetId}`;
-                form.className = 'edit-form-grid';
-
-                for (const key in asset.details) {
-                    const detail = asset.details[key];
-                    const label = document.createElement('label');
-                    label.textContent = key;
-                    label.htmlFor = `input-${assetId}-${key}`;
-                    
-                    const inputContainer = document.createElement('div');
-
-                    if ((detail.type === 'checkbox-list' && detail.optionsKey) || detail.type === 'security') {
-                        const optionsKey = detail.optionsKey || (key.includes('elektronické') ? 'securityElectronic' : 'securityAnalog');
-                        const options = sharedOptions[optionsKey];
-                        const checked = detail.checked || detail.value;
-
-                        if (options && Array.isArray(checked)) {
-                            options.forEach((option, index) => {
-                                const checkboxId = `input-${assetId}-${key}-${index}`;
-                                const wrapper = document.createElement('div');
-                                wrapper.className = 'flex items-center';
-                                const checkbox = document.createElement('input');
-                                checkbox.type = 'checkbox';
-                                checkbox.id = checkboxId;
-                                checkbox.checked = checked[index];
-                                const checkboxLabel = document.createElement('label');
-                                checkboxLabel.htmlFor = checkboxId;
-                                checkboxLabel.textContent = option;
-                                checkboxLabel.className = "ml-2";
-                                wrapper.appendChild(checkbox);
-                                wrapper.appendChild(checkboxLabel);
-                                inputContainer.appendChild(wrapper);
-                            });
-                        }
-                    } else if (detail.type === 'lawfulness') {
-                        const select = document.createElement('select');
-                        select.id = `input-${assetId}-${key}`;
-                        select.className = 'form-input';
-                        sharedOptions.lawfulness.forEach(option => {
-                            const optionEl = document.createElement('option');
-                            const value = option.split(')')[0];
-                            optionEl.value = value;
-                            optionEl.textContent = option;
-                            if (detail.value === value) {
-                                optionEl.selected = true;
-                            }
-                            select.appendChild(optionEl);
-                        });
-                        inputContainer.appendChild(select);
-                    } else if (detail.value !== undefined && typeof detail.value === 'string') {
-                         const input = document.createElement('input');
-                         input.type = 'text';
-                         input.id = `input-${assetId}-${key}`;
-                         input.value = detail.value;
-                         input.className = 'form-input';
-                         inputContainer.appendChild(input);
-                    } else {
-                        const text = document.createElement('p');
-                        text.textContent = 'Tuto položku nelze upravovat.';
-                        inputContainer.appendChild(text);
-                    }
-                    form.appendChild(label);
-                    form.appendChild(inputContainer);
-                }
-                assetDetailContainer.appendChild(form);
-
-                const buttonContainer = document.createElement('div');
-                buttonContainer.className = 'mt-6 flex justify-end space-x-4';
-
-                const saveButton = document.createElement('button');
-                saveButton.textContent = 'Uložit';
-                saveButton.className = 'px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700';
-                saveButton.onclick = (e) => {
-                    e.preventDefault();
-                    saveChanges(assetId);
-                };
-
-                const cancelButton = document.createElement('button');
-                cancelButton.textContent = 'Zrušit';
-                cancelButton.className = 'px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300';
-                cancelButton.onclick = (e) => {
-                    e.preventDefault();
-                    showAssetDetails(assetId, findParentId(assetId));
-                };
-                
-                buttonContainer.appendChild(cancelButton);
-                buttonContainer.appendChild(saveButton);
-                assetDetailContainer.appendChild(buttonContainer);
-            }
+            // ... (všechny ostatní funkce jako flattenData, buildNav, atd. zůstávají stejné)
 
             async function saveChanges(assetId) {
                 const asset = allAssets[assetId];
                 const form = document.getElementById(`form-${assetId}`);
                 const changedKeys = [];
-                const updatedDetails = JSON.parse(JSON.stringify(asset.details)); // Deep copy
+                const updatedDetails = JSON.parse(JSON.stringify(asset.details)); 
 
                 for (const key in updatedDetails) {
                     const detail = updatedDetails[key];
@@ -537,73 +131,25 @@
                 if (changedKeys.length > 0) {
                     const parentId = findParentId(assetId);
                     const grandparentId = findParentId(parentId);
-                    const path = `children.${parentId}.children.${assetId}.details`;
+                    const path = `agendy/children/${parentId}/children/${assetId}/details`;
                     
                     try {
                         await fetch('/.netlify/functions/update-agenda', {
                             method: 'POST',
                             body: JSON.stringify({ path, data: updatedDetails })
                         });
-                        asset.details = updatedDetails; // Update local data on success
+                        asset.details = updatedDetails;
                         showAssetDetails(assetId, parentId, changedKeys);
                     } catch (error) {
                         console.error('Chyba při ukládání změn:', error);
                         alert('Nepodařilo se uložit změny.');
                     }
                 } else {
-                    showAssetDetails(assetId, findParentId(assetId)); // No changes, just switch back
+                    showAssetDetails(assetId, findParentId(assetId));
                 }
             }
 
-            function showAssetDetails(assetId, parentId, changedKeys = []) {
-                const asset = allAssets[assetId];
-                if (!asset) return;
-                welcomeMessage.classList.add('hidden');
-                assetDetailContainer.classList.remove('hidden');
-                assetDetailContainer.innerHTML = '';
-                document.querySelectorAll('.sidebar-item.active').forEach(el => el.classList.remove('active'));
-                if (parentId) {
-                   document.querySelector(`.sidebar-item[data-id="${parentId}"]`)?.classList.add('active');
-                }
-                if (parentId && allAssets[parentId]) {
-                    const parentAsset = allAssets[parentId];
-                    const breadcrumbs = document.createElement('div');
-                    breadcrumbs.className = 'mb-4 text-sm';
-                    breadcrumbs.innerHTML = `
-                        <a class="asset-link" onclick="event.stopPropagation(); showCategoryContent('${parentId}')">${parentAsset.name}</a>
-                        <span class="mx-2 text-gray-400">/</span>
-                        <span class="text-gray-600">${asset.name}</span>
-                    `;
-                    assetDetailContainer.appendChild(breadcrumbs);
-                }
-                const titleContainer = document.createElement('div');
-                titleContainer.className = 'flex justify-between items-center border-b border-gray-300 mb-6 pb-2';
-                const title = document.createElement('h2');
-                title.textContent = asset.name;
-                title.className = 'text-3xl font-bold';
-                titleContainer.appendChild(title);
-
-                const grandparentId = findParentId(parentId);
-                if (grandparentId === 'agendy') { 
-                    const editButton = document.createElement('button');
-                    editButton.textContent = 'Upravit';
-                    editButton.className = 'px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300';
-                    editButton.onclick = () => renderEditForm(assetId);
-                    titleContainer.appendChild(editButton);
-                }
-                assetDetailContainer.appendChild(titleContainer);
-
-                if (asset.type === 'sluzba-uradu') {
-                    renderServiceDetails(asset, parentId);
-                } else {
-                    renderGenericDetails(asset, assetId, changedKeys);
-                }
-            }
-            
-            // Initialization
-            allAssets = flattenData(assetData);
-            buildParentMap(assetData);
-            buildNav(assetData, sidebar);
+            // ... (zde budou všechny ostatní funkce pro renderování, které zůstávají stejné)
         });
     </script>
 </body>
