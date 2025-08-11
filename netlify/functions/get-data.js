@@ -1,46 +1,32 @@
-// Importuje Firebase Admin SDK pro komunikaci s databází
+// netlify/functions/get-data.js
 const admin = require('firebase-admin');
 
-// Načte přístupové klíče k Firebase z proměnných prostředí Netlify
 const serviceAccount = JSON.parse(process.env.FIREBASE_CREDENTIALS);
 
-// Inicializuje Firebase aplikaci, pokud ještě nebyla inicializována
 if (!admin.apps.length) {
   admin.initializeApp({
-    credential: admin.credential.cert(serviceAccount)
+    credential: admin.credential.cert(serviceAccount),
+    databaseURL: `https://${serviceAccount.project_id}.firebaseio.com`
   });
 }
 
-const db = admin.firestore();
+const db = admin.database();
 
-// Handler funkce, která se spustí při zavolání z webové stránky
 exports.handler = async function(event, context) {
     try {
-        // Seznam kolekcí, které chceme z databáze načíst
-        const collections = ['primarni', 'podpurna', 'agendy', 'options'];
-        const data = {};
+        const ref = db.ref('/');
+        const snapshot = await ref.once('value');
+        const data = snapshot.val();
 
-        // Projde všechny kolekce a načte z nich data
-        for (const col of collections) {
-            const snapshot = await db.collection(col).get();
-            if (!snapshot.empty) {
-                 // Předpokládáme, že každá kolekce obsahuje jeden dokument s daty
-                 const docData = snapshot.docs[0].data();
-                 data[col] = docData;
-            }
-        }
-
-        // Vrací data ve formátu JSON s HTTP statusem 200 (OK)
         return {
             statusCode: 200,
             body: JSON.stringify(data),
         };
     } catch (error) {
         console.error(error);
-        // V případě chyby vrací chybovou hlášku
         return {
             statusCode: 500,
-            body: JSON.stringify({ error: 'Nepodařilo se načíst data.' }),
+            body: JSON.stringify({ error: 'Failed to fetch data.' }),
         };
     }
 };
