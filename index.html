@@ -438,7 +438,7 @@
                                     const selectedId = select.value;
                                     if (!selectedId) return;
                                     const selectedAsset = allAssets[selectedId];
-                                    addLinkedSystem(selectedId, selectedAsset.name);
+                                    addLinkedSystem(linkedSystemsContainer, selectedId, selectedAsset.name);
                                     updateAddSystemDropdown();
                                 };
 
@@ -447,8 +447,7 @@
                                 isSelectorContainer.appendChild(addSystemWrapper);
                                 methodWrapper.appendChild(isSelectorContainer);
 
-                                function addLinkedSystem(systemId, systemName) {
-                                    const container = document.getElementById(`linked-systems-${assetId}`);
+                                const addLinkedSystem = (container, systemId, systemName) => {
                                     const systemDiv = document.createElement('div');
                                     systemDiv.className = 'flex items-center justify-between p-1';
                                     systemDiv.dataset.systemId = systemId;
@@ -468,9 +467,9 @@
                                     systemDiv.appendChild(nameSpan);
                                     systemDiv.appendChild(removeButton);
                                     container.appendChild(systemDiv);
-                                }
+                                };
 
-                                function updateAddSystemDropdown() {
+                                const updateAddSystemDropdown = () => {
                                     const selectEl = document.getElementById(`is-select-${assetId}`);
                                     const linkedContainer = document.getElementById(`linked-systems-${assetId}`);
                                     const currentlyLinkedIds = Array.from(linkedContainer.children).map(div => div.dataset.systemId);
@@ -486,11 +485,11 @@
                                             selectEl.appendChild(option);
                                         }
                                     }
-                                }
+                                };
                                 
                                 (method.linksTo || []).forEach(systemId => {
                                     if(allAssets[systemId]) {
-                                        addLinkedSystem(systemId, allAssets[systemId].name);
+                                        addLinkedSystem(linkedSystemsContainer, systemId, allAssets[systemId].name);
                                     }
                                 });
                                 updateAddSystemDropdown();
