@@ -24,7 +24,7 @@ exports.handler = async function(event, context) {
         const updates = {};
         
         // 1. Připraví aktualizaci pro samotnou agendu
-        updates[agendaPath] = updatedAgendaDetails;
+        updates[`${agendaPath}/details`] = updatedAgendaDetails;
 
         // 2. Připraví přidání zpětných odkazů z informačních systémů
         for (const systemId of linksToAdd) {
