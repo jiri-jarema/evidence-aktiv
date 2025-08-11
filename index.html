@@ -489,7 +489,9 @@
                                 }
                                 
                                 (method.linksTo || []).forEach(systemId => {
-                                    addLinkedSystem(systemId, allAssets[systemId].name);
+                                    if(allAssets[systemId]) {
+                                        addLinkedSystem(systemId, allAssets[systemId].name);
+                                    }
                                 });
                                 updateAddSystemDropdown();
 
