@@ -62,11 +62,12 @@
              display: grid;
             grid-template-columns: 1fr 2fr;
             gap: 1rem 2rem;
-            align-items: center;
+            align-items: start;
         }
         .edit-form-grid label {
             font-weight: 600;
             color: #4b5563;
+            padding-top: 0.5rem;
         }
         .form-input {
             width: 100%;
@@ -390,7 +391,63 @@
                     
                     const inputContainer = document.createElement('div');
 
-                    if ((detail.type === 'checkbox-list' && detail.optionsKey) || detail.type === 'security') {
+                    if (key === "Způsob zpracování") {
+                        const methods = detail.value;
+                        methods.forEach((method, methodIndex) => {
+                            const methodWrapper = document.createElement('div');
+                            const methodId = `input-${assetId}-${sanitizedKey}-${methodIndex}`;
+                            
+                            const checkboxWrapper = document.createElement('div');
+                            checkboxWrapper.className = 'flex items-center';
+
+                            const checkbox = document.createElement('input');
+                            checkbox.type = 'checkbox';
+                            checkbox.id = methodId;
+                            checkbox.checked = method.checked;
+                            
+                            const checkboxLabel = document.createElement('label');
+                            checkboxLabel.htmlFor = methodId;
+                            checkboxLabel.textContent = method.label;
+                            checkboxLabel.className = "ml-2";
+
+                            checkboxWrapper.appendChild(checkbox);
+                            checkboxWrapper.appendChild(checkboxLabel);
+                            methodWrapper.appendChild(checkboxWrapper);
+
+                            if (method.label.includes("agendový informační systém")) {
+                                const isSelectorContainer = document.createElement('div');
+                                isSelectorContainer.className = 'ml-8 mt-2 p-2 border border-gray-200 rounded';
+                                
+                                const allSystems = assetData.primarni.children['informacni-systemy'].children;
+                                const currentLinks = method.linksTo || [];
+
+                                for (const systemId in allSystems) {
+                                    const system = allSystems[systemId];
+                                    const systemCheckboxId = `input-${assetId}-${sanitizedKey}-system-${systemId}`;
+                                    const systemWrapper = document.createElement('div');
+                                    systemWrapper.className = 'flex items-center';
+                                    
+                                    const systemCheckbox = document.createElement('input');
+                                    systemCheckbox.type = 'checkbox';
+                                    systemCheckbox.id = systemCheckboxId;
+                                    systemCheckbox.value = systemId;
+                                    systemCheckbox.checked = currentLinks.includes(systemId);
+                                    
+                                    const systemLabel = document.createElement('label');
+                                    systemLabel.htmlFor = systemCheckboxId;
+                                    systemLabel.textContent = system.name;
+                                    systemLabel.className = "ml-2";
+
+                                    systemWrapper.appendChild(systemCheckbox);
+                                    systemWrapper.appendChild(systemLabel);
+                                    isSelectorContainer.appendChild(systemWrapper);
+                                }
+                                methodWrapper.appendChild(isSelectorContainer);
+                            }
+                            inputContainer.appendChild(methodWrapper);
+                        });
+                    }
+                    else if ((detail.type === 'checkbox-list' && detail.optionsKey) || detail.type === 'security') {
                         const optionsKey = detail.optionsKey || (key.includes('elektronické') ? 'securityElectronic' : 'securityAnalog');
                         const options = sharedOptions[optionsKey];
                         const checked = detail.checked || detail.value;
@@ -478,7 +535,43 @@
                 for (const key in updatedDetails) {
                     const detail = updatedDetails[key];
                     const sanitizedKey = sanitizeForId(key);
-                    if ((detail.type === 'checkbox-list' && detail.optionsKey) || detail.type === 'security') {
+                    if (key === "Způsob zpracování") {
+                        let changed = false;
+                        const originalMethods = asset.details[key].value;
+                        const newMethods = [];
+
+                        originalMethods.forEach((method, methodIndex) => {
+                            const newMethod = { ...method };
+                            const checkbox = form.querySelector(`#input-${assetId}-${sanitizedKey}-${methodIndex}`);
+                            if (checkbox && newMethod.checked !== checkbox.checked) {
+                                newMethod.checked = checkbox.checked;
+                                changed = true;
+                            }
+
+                            if (method.label.includes("agendový informační systém")) {
+                                const originalLinks = method.linksTo || [];
+                                const newLinks = [];
+                                const allSystems = assetData.primarni.children['informacni-systemy'].children;
+                                for (const systemId in allSystems) {
+                                    const systemCheckbox = form.querySelector(`#input-${assetId}-${sanitizedKey}-system-${systemId}`);
+                                    if (systemCheckbox && systemCheckbox.checked) {
+                                        newLinks.push(systemId);
+                                    }
+                                }
+                                if (JSON.stringify(originalLinks.sort()) !== JSON.stringify(newLinks.sort())) {
+                                    changed = true;
+                                    newMethod.linksTo = newLinks;
+                                }
+                            }
+                            newMethods.push(newMethod);
+                        });
+
+                        if (changed) {
+                            updatedDetails[key].value = newMethods;
+                            changedKeys.push(key);
+                        }
+                    }
+                    else if ((detail.type === 'checkbox-list' && detail.optionsKey) || detail.type === 'security') {
                         let changed = false;
                         const checkedArray = detail.checked || detail.value;
                         const newChecked = [];
@@ -520,14 +613,30 @@
                 if (changedKeys.length > 0) {
                     const parentId = findParentId(assetId);
                     const grandparentId = findParentId(parentId);
-                    const path = `agendy/children/${parentId}/children/${assetId}/details`;
+                    const agendaPath = `agendy/children/${parentId}/children/${assetId}`;
                     
+                    const originalAisMethod = asset.details["Způsob zpracování"]?.value.find(m => m.label.includes("agendový"));
+                    const updatedAisMethod = updatedDetails["Způsob zpracování"]?.value.find(m => m.label.includes("agendový"));
+                    const originalLinks = originalAisMethod?.linksTo?.slice() || [];
+                    const newLinks = updatedAisMethod?.linksTo?.slice() || [];
+
+                    const linksToAdd = newLinks.filter(id => !originalLinks.includes(id));
+                    const linksToRemove = originalLinks.filter(id => !newLinks.includes(id));
+
                     try {
                         await fetch('/.netlify/functions/update-agenda', {
                             method: 'POST',
-                            body: JSON.stringify({ path, data: updatedDetails })
+                            body: JSON.stringify({ 
+                                agendaPath, 
+                                updatedAgendaDetails: updatedDetails,
+                                linksToAdd,
+                                linksToRemove,
+                                agendaId: assetId
+                            })
                         });
                         asset.details = updatedDetails;
+                        // Reload all data from server to reflect reciprocal changes
+                        await loadInitialData();
                         showAssetDetails(assetId, parentId, changedKeys);
                     } catch (error) {
                         console.error('Chyba při ukládání změn:', error);
@@ -583,36 +692,40 @@
                 }
             }
             
-            // --- INICIALIZACE APLIKACE ---
-            try {
-                const response = await fetch('/.netlify/functions/get-data');
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
+            async function loadInitialData() {
+                 try {
+                    const response = await fetch('/.netlify/functions/get-data');
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    const data = await response.json();
+
+                    if (!data || !data.primarni || !data.podpurna || !data.agendy || !data.options) {
+                        throw new Error("Načtená data nemají správnou strukturu.");
+                    }
+
+                    assetData = {
+                        primarni: data.primarni,
+                        podpurna: data.podpurna,
+                        agendy: data.agendy
+                    };
+                    sharedOptions = data.options;
+                    
+                    allAssets = flattenData(assetData);
+                    buildParentMap(assetData);
+                    buildNav(assetData, sidebar);
+                    welcomeMessage.querySelector('h2').textContent = 'Vítejte v evidenci aktiv';
+                    welcomeMessage.querySelector('p').textContent = 'Vyberte položku z menu vlevo pro zobrazení detailů.';
+
+                } catch (error) {
+                    console.error('Chyba při načítání dat:', error);
+                    welcomeMessage.querySelector('h2').textContent = 'Chyba při načítání dat';
+                    welcomeMessage.querySelector('p').textContent = 'Zkuste prosím obnovit stránku. Chyba: ' + error.message;
                 }
-                const data = await response.json();
-
-                if (!data || !data.primarni || !data.podpurna || !data.agendy || !data.options) {
-                    throw new Error("Načtená data nemají správnou strukturu.");
-                }
-
-                assetData = {
-                    primarni: data.primarni,
-                    podpurna: data.podpurna,
-                    agendy: data.agendy
-                };
-                sharedOptions = data.options;
-                
-                allAssets = flattenData(assetData);
-                buildParentMap(assetData);
-                buildNav(assetData, sidebar);
-                welcomeMessage.querySelector('h2').textContent = 'Vítejte v evidenci aktiv';
-                welcomeMessage.querySelector('p').textContent = 'Vyberte položku z menu vlevo pro zobrazení detailů.';
-
-            } catch (error) {
-                console.error('Chyba při načítání dat:', error);
-                welcomeMessage.querySelector('h2').textContent = 'Chyba při načítání dat';
-                welcomeMessage.querySelector('p').textContent = 'Zkuste prosím obnovit stránku. Chyba: ' + error.message;
             }
+
+            // --- INICIALIZACE APLIKACE ---
+            loadInitialData();
         });
     </script>
 </body>
