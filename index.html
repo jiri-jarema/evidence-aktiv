@@ -416,13 +416,11 @@
 
                             if (method.label.includes("agendový informační systém")) {
                                 const isSelectorContainer = document.createElement('div');
-                                isSelectorContainer.id = `is-selector-container-${assetId}`;
                                 isSelectorContainer.className = 'ml-8 mt-2 p-2 border border-gray-200 rounded';
                                 
                                 const linkedSystemsContainer = document.createElement('div');
                                 linkedSystemsContainer.id = `linked-systems-${assetId}`;
-                                isSelectorContainer.appendChild(linkedSystemsContainer);
-
+                                
                                 const addSystemWrapper = document.createElement('div');
                                 addSystemWrapper.className = 'mt-2 flex items-center space-x-2';
 
@@ -434,16 +432,11 @@
                                 addButton.textContent = 'Přidat';
                                 addButton.className = 'px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600';
                                 addButton.type = 'button';
-                                addButton.onclick = () => {
-                                    const selectedId = select.value;
-                                    if (!selectedId) return;
-                                    const selectedAsset = allAssets[selectedId];
-                                    addLinkedSystem(linkedSystemsContainer, selectedId, selectedAsset.name);
-                                    updateAddSystemDropdown();
-                                };
-
+                                
                                 addSystemWrapper.appendChild(select);
                                 addSystemWrapper.appendChild(addButton);
+                                
+                                isSelectorContainer.appendChild(linkedSystemsContainer);
                                 isSelectorContainer.appendChild(addSystemWrapper);
                                 methodWrapper.appendChild(isSelectorContainer);
 
@@ -475,7 +468,7 @@
                                     const currentlyLinkedIds = Array.from(linkedContainer.children).map(div => div.dataset.systemId);
                                     
                                     selectEl.innerHTML = '<option value="">Vyberte systém...</option>';
-                                    const allSystems = assetData.primarni.children['informacni-systemy'].children;
+                                    const allSystems = allAssets['informacni-systemy']?.children || {};
 
                                     for (const systemId in allSystems) {
                                         if (!currentlyLinkedIds.includes(systemId)) {
@@ -485,6 +478,14 @@
                                             selectEl.appendChild(option);
                                         }
                                     }
+                                };
+
+                                addButton.onclick = () => {
+                                    const selectedId = select.value;
+                                    if (!selectedId) return;
+                                    const selectedAsset = allAssets[selectedId];
+                                    addLinkedSystem(linkedSystemsContainer, selectedId, selectedAsset.name);
+                                    updateAddSystemDropdown();
                                 };
                                 
                                 (method.linksTo || []).forEach(systemId => {
