@@ -744,14 +744,276 @@
             form.appendChild(buttonContainer);
         }
 
-        async function saveSupportAssetChanges(assetId) {
-            // ...
+        async function saveAgendaChanges(assetId) {
+            const asset = allAssets[assetId];
+            const form = document.getElementById(`form-${assetId}`);
+            const changedKeys = [];
+            const updatedDetails = JSON.parse(JSON.stringify(asset.details)); 
+
+            for (const key in updatedDetails) {
+                const detail = updatedDetails[key];
+                const sanitizedKey = sanitizeForId(key);
+                
+                if (key === "Lhůty pro výmaz" && detail.type === 'dictionary') {
+                    let changed = false;
+                    const newLhutyValue = {};
+                    for (const subKey in detail.value) {
+                        const inputId = `input-${assetId}-${sanitizedKey}-${sanitizeForId(subKey)}`;
+                        const input = form.querySelector(`#${inputId}`);
+                        if (input && detail.value[subKey] !== input.value) {
+                            changed = true;
+                        }
+                        newLhutyValue[subKey] = input.value;
+                    }
+
+                    if (changed) {
+                        updatedDetails[key].value = newLhutyValue;
+                        changedKeys.push(key);
+                    }
+                }
+                else if (key === "Způsob zpracování") {
+                    let changed = false;
+                    const originalMethods = asset.details[key].value;
+                    const newMethods = [];
+
+                    originalMethods.forEach((method, methodIndex) => {
+                        const newMethod = { ...method };
+                        const checkbox = form.querySelector(`#input-${assetId}-${sanitizedKey}-${methodIndex}`);
+                        if (!checkbox) return;
+
+                        const isNowChecked = checkbox.checked;
+
+                        if (newMethod.checked !== isNowChecked) {
+                            newMethod.checked = isNowChecked;
+                            changed = true;
+                        }
+
+                        if (isNowChecked) {
+                            if (method.label.includes("agendový informační systém")) {
+                                const linkedContainer = document.getElementById(`linked-systems-${assetId}`);
+                                const newLinks = Array.from(linkedContainer.children).map(div => div.dataset.systemId);
+                                if (JSON.stringify(newMethod.linksTo || []) !== JSON.stringify(newLinks)) {
+                                    newMethod.linksTo = newLinks;
+                                    changed = true;
+                                }
+                            } else if (method.details !== undefined) {
+                                const detailsInput = form.querySelector(`#input-${assetId}-${sanitizedKey}-${methodIndex}-details`);
+                                if (detailsInput && newMethod.details !== detailsInput.value) {
+                                    newMethod.details = detailsInput.value;
+                                    changed = true;
+                                }
+                            }
+                        } else {
+                            if (method.details !== undefined && newMethod.details !== "") {
+                                newMethod.details = "";
+                                changed = true;
+                            }
+                            if (method.linksTo !== undefined && (newMethod.linksTo || []).length > 0) {
+                                newMethod.linksTo = [];
+                                changed = true;
+                            }
+                        }
+                        newMethods.push(newMethod);
+                    });
+                    
+                    if (JSON.stringify(originalMethods) !== JSON.stringify(newMethods)) {
+                       updatedDetails[key].value = newMethods;
+                       if (!changedKeys.includes(key)) changedKeys.push(key);
+                    }
+                }
+                else if ((detail.type === 'checkbox-list' && detail.optionsKey) || detail.type === 'security') {
+                    let changed = false;
+                    const checkedArray = detail.checked || detail.value;
+                    const newChecked = [];
+                    const optionsKey = detail.optionsKey || (key.includes('elektronické') ? 'securityElectronic' : 'securityAnalog');
+                    
+                    sharedOptions[optionsKey].forEach((_, index) => {
+                        const checkbox = form.querySelector(`#input-${assetId}-${sanitizedKey}-${index}`);
+                        if (checkbox) {
+                            if (checkedArray[index] !== checkbox.checked) {
+                                changed = true;
+                            }
+                            newChecked.push(checkbox.checked);
+                        }
+                    });
+
+                    if (changed) {
+                        if(detail.checked) {
+                            updatedDetails[key].checked = newChecked;
+                        } else {
+                            updatedDetails[key].value = newChecked;
+                        }
+                        changedKeys.push(key);
+                    }
+                } else if (detail.type === 'lawfulness') {
+                    const select = form.querySelector(`#input-${assetId}-${sanitizedKey}`);
+                    if (select && detail.value !== select.value) {
+                        updatedDetails[key].value = select.value;
+                        changedKeys.push(key);
+                    }
+                } else if (detail.value !== undefined && typeof detail.value === 'string') {
+                    const input = form.querySelector(`#input-${assetId}-${sanitizedKey}`);
+                    if (input && detail.value !== input.value) {
+                        updatedDetails[key].value = input.value;
+                        changedKeys.push(key);
+                    }
+                }
+            }
+            
+            if (changedKeys.length > 0) {
+                const parentId = findParentId(assetId);
+                const agendaPath = `agendy/children/${parentId}/children/${assetId}`;
+                const idToken = await currentUser.getIdToken();
+                
+                const originalAisMethod = asset.details["Způsob zpracování"]?.value.find(m => m.label.includes("agendový"));
+                const updatedAisMethod = updatedDetails["Způsob zpracování"]?.value.find(m => m.label.includes("agendový"));
+                const originalLinks = originalAisMethod?.linksTo?.slice() || [];
+                const newLinks = updatedAisMethod?.linksTo?.slice() || [];
+
+                const linksToAdd = newLinks.filter(id => !originalLinks.includes(id));
+                const linksToRemove = originalLinks.filter(id => !newLinks.includes(id));
+
+                try {
+                    const response = await fetch('/.netlify/functions/update-agenda', {
+                        method: 'POST',
+                        headers: { 'Authorization': `Bearer ${idToken}` },
+                        body: JSON.stringify({ 
+                            agendaPath, 
+                            updatedAgendaDetails: updatedDetails,
+                            linksToAdd,
+                            linksToRemove,
+                            agendaId: assetId
+                        })
+                    });
+                    if (!response.ok) throw new Error(await response.text());
+
+                    await loadInitialData();
+                    showAssetDetails(assetId, parentId, changedKeys);
+                } catch (error) {
+                    console.error('Chyba při ukládání změn agendy:', error);
+                    alert('Nepodařilo se uložit změny. Zkontrolujte svá oprávnění.');
+                }
+            } else {
+                showAssetDetails(assetId, findParentId(assetId));
+            }
         }
-        
+
         function renderSupportAssetEditForm(assetId) {
             // ...
         }
 
+        async function saveSupportAssetChanges(assetId) {
+            // ...
+        }
+        
+        function showAssetDetails(assetId, parentId, changedKeys = []) {
+            const asset = allAssets[assetId];
+            if (!asset) return;
+            welcomeMessage.classList.add('hidden');
+            assetDetailContainer.classList.remove('hidden');
+            assetDetailContainer.innerHTML = '';
+            document.querySelectorAll('.sidebar-item.active').forEach(el => el.classList.remove('active'));
+            if (parentId) {
+               document.querySelector(`.sidebar-item[data-id="${parentId}"]`)?.classList.add('active');
+            }
+            if (parentId && allAssets[parentId]) {
+                const parentAsset = allAssets[parentId];
+                const breadcrumbs = document.createElement('div');
+                breadcrumbs.className = 'mb-4 text-sm';
+
+                const parentLink = document.createElement('a');
+                parentLink.className = 'asset-link';
+                parentLink.textContent = parentAsset.name;
+                parentLink.onclick = (e) => {
+                    e.stopPropagation();
+                    showCategoryContent(parentId);
+                };
+                
+                const separator = document.createElement('span');
+                separator.className = 'mx-2 text-gray-400';
+                separator.textContent = '/';
+                
+                const currentAssetText = document.createElement('span');
+                currentAssetText.className = 'text-gray-600';
+                currentAssetText.textContent = asset.name;
+
+                breadcrumbs.appendChild(parentLink);
+                breadcrumbs.appendChild(separator);
+                breadcrumbs.appendChild(currentAssetText);
+                assetDetailContainer.appendChild(breadcrumbs);
+            }
+            const titleContainer = document.createElement('div');
+            titleContainer.className = 'flex justify-between items-center border-b border-gray-300 mb-6 pb-2';
+            const title = document.createElement('h2');
+            title.textContent = asset.name;
+            title.className = 'text-3xl font-bold';
+            titleContainer.appendChild(title);
+
+            const grandparentId = findParentId(parentId);
+            const isAgenda = grandparentId === 'agendy';
+            const isSupportOrPrimary = grandparentId === 'podpurna' || grandparentId === 'primarni';
+
+            let canEdit = false;
+            if (isAgenda && (userRole === 'administrator' || (userRole === 'garant' && userOdbor === parentId))) {
+                canEdit = true;
+            } else if (isSupportOrPrimary && userRole === 'administrator') {
+                canEdit = true;
+            }
+
+            if (canEdit) {
+                const editButton = document.createElement('button');
+                editButton.textContent = 'Upravit';
+                editButton.className = 'px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300';
+                if (isAgenda) {
+                    editButton.onclick = () => renderEditForm(assetId);
+                } else {
+                    editButton.onclick = () => renderSupportAssetEditForm(assetId);
+                }
+                titleContainer.appendChild(editButton);
+            }
+            assetDetailContainer.appendChild(titleContainer);
+
+            if (asset.type === 'sluzba-uradu') {
+                renderServiceDetails(asset, parentId);
+            } else {
+                renderGenericDetails(asset, assetId, changedKeys);
+            }
+        }
+        
+        async function loadInitialData() {
+             try {
+                const response = await fetch('/.netlify/functions/get-data');
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const data = await response.json();
+
+                if (!data || !data.primarni || !data.podpurna || !data.agendy || !data.options) {
+                    throw new Error("Načtená data nemají správnou strukturu.");
+                }
+
+                assetData = {
+                    primarni: data.primarni,
+                    podpurna: data.podpurna,
+                    agendy: data.agendy
+                };
+                sharedOptions = data.options;
+                
+                allAssets = flattenData(assetData);
+                buildParentMap(assetData);
+                
+                sidebar.innerHTML = ''; 
+                buildNav(assetData, sidebar);
+
+                welcomeMessage.querySelector('h2').textContent = 'Vítejte v evidenci aktiv';
+                welcomeMessage.querySelector('p').textContent = 'Vyberte položku z menu vlevo pro zobrazení detailů.';
+
+            } catch (error) {
+                console.error('Chyba při načítání dat:', error);
+                welcomeMessage.querySelector('h2').textContent = 'Chyba při načítání dat';
+                welcomeMessage.querySelector('p').textContent = 'Zkuste prosím obnovit stránku. Chyba: ' + error.message;
+            }
+        }
     </script>
 </body>
 </html>
