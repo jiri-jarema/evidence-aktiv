@@ -28,7 +28,7 @@
         }
         .sidebar-item {
             cursor: pointer;
-            transition: background-color: 0.2s ease-in-out;
+            transition: background-color 0.2s ease-in-out;
         }
         .sidebar-item:hover {
             background-color: #e5e7eb;
@@ -170,7 +170,6 @@
             }
 
             function buildNav(data, parentElement, level = 0) {
-                if (level > 1) return;
                 const ul = document.createElement('ul');
                 if (level > 0) ul.style.paddingLeft = `${(level-1) * 16}px`;
                 
@@ -344,11 +343,15 @@
                 detailsGrid.className = 'details-grid';
 
                 if (asset.details && Object.keys(asset.details).length > 0) {
-                     detailOrder.forEach(key => {
+                    // Determine the order of keys. For agendas, use the predefined order. For others, use the natural order.
+                    const isAgenda = findParentId(findParentId(assetId)) === 'agendy';
+                    const keysToRender = isAgenda ? detailOrder : Object.keys(asset.details);
+
+                    keysToRender.forEach(key => {
                         if (asset.details[key]) {
                             const detail = asset.details[key];
                             const dt = document.createElement('dt');
-                            dt.textContent = key;
+                            dt.textContent = key.replace(/_/g, ' '); // Replace underscores with spaces for better readability
                             const dd = document.createElement('dd');
                             
                             if (changedKeys.includes(key)) {
@@ -384,7 +387,7 @@
                             detailsGrid.appendChild(dt);
                             detailsGrid.appendChild(dd);
                         }
-                     });
+                    });
                 } else {
                      detailsGrid.innerHTML = '<p class="text-gray-500 col-span-2">Pro tuto položku nejsou k dispozici žádné podrobnosti.</p>';
                 }
