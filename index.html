@@ -366,23 +366,20 @@
                             } else if (detail.type === 'security') { // Handle old security format
                                 renderCheckboxList(sharedOptions.securityElectronic, detail.value, dd);
                             } else if (detail.linksTo) {
-    dd.appendChild(createLinksFragment(detail.linksTo));
-} else if (detail.type === 'dictionary' && typeof detail.value === 'object') {
-    // Zpracování nové struktury "Lhůty pro výmaz"
-    const subList = document.createElement('ul');
-    subList.className = 'list-disc list-inside';
-    for (const key in detail.value) {
-        if (detail.value.hasOwnProperty(key)) {
-            const listItem = document.createElement('li');
-            listItem.innerHTML = `<strong>${key}:</strong> ${detail.value[key]}`;
-            subList.appendChild(listItem);
-        }
-    }
-    dd.appendChild(subList);
-}
-else {
-    dd.textContent = detail.value || '-';
-}
+                                dd.appendChild(createLinksFragment(detail.linksTo));
+                            } else if (detail.type === 'dictionary' && typeof detail.value === 'object') {
+                                const subList = document.createElement('ul');
+                                subList.className = 'list-disc list-inside space-y-1';
+                                for (const subKey in detail.value) {
+                                    if (detail.value.hasOwnProperty(subKey)) {
+                                        const listItem = document.createElement('li');
+                                        listItem.innerHTML = `<span class="font-medium">${subKey}:</span> ${detail.value[subKey]}`;
+                                        subList.appendChild(listItem);
+                                    }
+                                }
+                                dd.appendChild(subList);
+                            } else {
+                                dd.textContent = detail.value || '-';
                             }
                             detailsGrid.appendChild(dt);
                             detailsGrid.appendChild(dd);
@@ -760,11 +757,26 @@ else {
                     const parentAsset = allAssets[parentId];
                     const breadcrumbs = document.createElement('div');
                     breadcrumbs.className = 'mb-4 text-sm';
-                    breadcrumbs.innerHTML = `
-                        <a class="asset-link" onclick="event.stopPropagation(); showCategoryContent('${parentId}')">${parentAsset.name}</a>
-                        <span class="mx-2 text-gray-400">/</span>
-                        <span class="text-gray-600">${asset.name}</span>
-                    `;
+
+                    const parentLink = document.createElement('a');
+                    parentLink.className = 'asset-link';
+                    parentLink.textContent = parentAsset.name;
+                    parentLink.onclick = (e) => {
+                        e.stopPropagation();
+                        showCategoryContent(parentId);
+                    };
+                    
+                    const separator = document.createElement('span');
+                    separator.className = 'mx-2 text-gray-400';
+                    separator.textContent = '/';
+                    
+                    const currentAssetText = document.createElement('span');
+                    currentAssetText.className = 'text-gray-600';
+                    currentAssetText.textContent = asset.name;
+
+                    breadcrumbs.appendChild(parentLink);
+                    breadcrumbs.appendChild(separator);
+                    breadcrumbs.appendChild(currentAssetText);
                     assetDetailContainer.appendChild(breadcrumbs);
                 }
                 const titleContainer = document.createElement('div');
@@ -829,4 +841,5 @@ else {
     </script>
 </body>
 </html>
+
 
