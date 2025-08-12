@@ -898,13 +898,212 @@
             }
         }
 
-        function renderSupportAssetEditForm(assetId) {
-            // ...
+                function renderSupportAssetEditForm(assetId) {
+            const asset = allAssets[assetId];
+            const assetPath = getPathForAsset(assetId);
+            assetDetailContainer.innerHTML = '';
+
+            const title = document.createElement('h2');
+            title.textContent = `Úprava: ${asset.name}`;
+            title.className = 'text-3xl font-bold mb-6 pb-2 border-b border-gray-300';
+            assetDetailContainer.appendChild(title);
+
+            const form = document.createElement('form');
+            form.id = `form-${assetId}`;
+            form.className = 'edit-form-grid';
+
+            for (const key in asset.details) {
+                const detail = asset.details[key];
+                const label = document.createElement('label');
+                label.textContent = key.replace(/_/g, ' ');
+                const inputContainer = document.createElement('div');
+
+                if (detail.linksTo) {
+                    // --- Logika pro vícenásobný výběr odkazů ---
+                    const selectedItemsContainer = document.createElement('div');
+                    selectedItemsContainer.id = `selected-items-${key}`;
+                    selectedItemsContainer.className = 'flex flex-wrap items-center mb-2';
+
+                    const currentLinks = Array.isArray(detail.linksTo) ? detail.linksTo : [detail.linksTo];
+
+                    const updateDropdown = (selectEl, currentSelection) => {
+                        const assetCategoryPath = Object.keys(reciprocalMap).find(p => assetPath.startsWith(p));
+                        const linkConfig = reciprocalMap[assetCategoryPath]?.[key];
+                        if (!linkConfig) return;
+                        
+                        const targetCategory = getObjectByPath(assetData, linkConfig.targetCategoryPath);
+                        selectEl.innerHTML = '<option value="">Vyberte položku...</option>';
+
+                        for (const targetId in targetCategory.children) {
+                            if (!currentSelection.includes(targetId)) {
+                                const option = document.createElement('option');
+                                option.value = targetId;
+                                option.textContent = targetCategory.children[targetId].name;
+                                selectEl.appendChild(option);
+                            }
+                        }
+                    };
+                    
+                    const addSelectedItem = (id, name) => {
+                        const badge = document.createElement('span');
+                        badge.className = 'selected-item-badge';
+                        badge.dataset.id = id;
+                        badge.textContent = name;
+                        
+                        const removeBtn = document.createElement('button');
+                        removeBtn.innerHTML = '&times;';
+                        removeBtn.type = 'button';
+                        removeBtn.onclick = () => {
+                            badge.remove();
+                            const currentSelection = Array.from(selectedItemsContainer.children).map(b => b.dataset.id);
+                            updateDropdown(select, currentSelection);
+                        };
+                        badge.appendChild(removeBtn);
+                        selectedItemsContainer.appendChild(badge);
+                    };
+                    
+                    currentLinks.forEach(linkId => {
+                        if (allAssets[linkId]) {
+                            addSelectedItem(linkId, allAssets[linkId].name);
+                        }
+                    });
+
+                    const addWrapper = document.createElement('div');
+                    addWrapper.className = 'flex items-center space-x-2';
+                    const select = document.createElement('select');
+                    select.className = 'form-input';
+                    
+                    const addButton = document.createElement('button');
+                    addButton.textContent = 'Přidat';
+                    addButton.type = 'button';
+                    addButton.className = 'px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600';
+                    addButton.onclick = () => {
+                        const selectedId = select.value;
+                        if (!selectedId) return;
+                        addSelectedItem(selectedId, allAssets[selectedId].name);
+                        const currentSelection = Array.from(selectedItemsContainer.children).map(b => b.dataset.id);
+                        updateDropdown(select, currentSelection);
+                    };
+
+                    updateDropdown(select, currentLinks);
+                    addWrapper.appendChild(select);
+                    addWrapper.appendChild(addButton);
+                    inputContainer.appendChild(selectedItemsContainer);
+                    inputContainer.appendChild(addWrapper);
+
+                } else {
+                    // --- Logika pro jednoduchý textový vstup ---
+                    const input = document.createElement('input');
+                    input.type = 'text';
+                    input.id = `input-${key}`;
+                    input.value = detail.value || '';
+                    input.className = 'form-input';
+                    inputContainer.appendChild(input);
+                }
+
+                form.appendChild(label);
+                form.appendChild(inputContainer);
+            }
+
+            const buttonContainer = document.createElement('div');
+            buttonContainer.className = 'mt-6 flex justify-end space-x-4 col-span-2';
+
+            const saveButton = document.createElement('button');
+            saveButton.textContent = 'Uložit';
+            saveButton.className = 'px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700';
+            saveButton.onclick = (e) => {
+                e.preventDefault();
+                saveSupportAssetChanges(assetId);
+            };
+
+            const cancelButton = document.createElement('button');
+            cancelButton.textContent = 'Zrušit';
+            cancelButton.className = 'px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300';
+            cancelButton.onclick = (e) => {
+                e.preventDefault();
+                showAssetDetails(assetId, findParentId(assetId));
+            };
+            
+            buttonContainer.appendChild(cancelButton);
+            buttonContainer.appendChild(saveButton);
+            form.appendChild(buttonContainer);
+            assetDetailContainer.appendChild(form);
         }
 
-        async function saveSupportAssetChanges(assetId) {
-            // ...
+
+                async function saveSupportAssetChanges(assetId) {
+            const asset = allAssets[assetId];
+            const form = document.getElementById(`form-${assetId}`);
+            const updatedDetails = JSON.parse(JSON.stringify(asset.details));
+            let hasChanged = false;
+
+            const reciprocalLinks = { toAdd: [], toRemove: [] };
+            const assetPath = getPathForAsset(assetId);
+
+            for (const key in updatedDetails) {
+                const detail = updatedDetails[key];
+                
+                if (detail.linksTo) {
+                    const selectedItemsContainer = form.querySelector(`#selected-items-${key}`);
+                    const newLinks = Array.from(selectedItemsContainer.children).map(badge => badge.dataset.id);
+                    const originalLinks = Array.isArray(detail.linksTo) ? detail.linksTo : [detail.linksTo];
+
+                    if (JSON.stringify(newLinks.sort()) !== JSON.stringify(originalLinks.sort())) {
+                        hasChanged = true;
+                        updatedDetails[key].linksTo = newLinks;
+
+                        const assetCategoryPath = Object.keys(reciprocalMap).find(p => assetPath.startsWith(p));
+                        const linkConfig = reciprocalMap[assetCategoryPath]?.[key];
+                        
+                        if (linkConfig) {
+                            const toAdd = newLinks.filter(id => !originalLinks.includes(id));
+                            const toRemove = originalLinks.filter(id => !newLinks.includes(id));
+
+                            toAdd.forEach(targetId => {
+                                reciprocalLinks.toAdd.push({
+                                    targetPath: `${linkConfig.targetCategoryPath}/children/${targetId}/details/${linkConfig.reciprocalField}/linksTo`,
+                                    sourceId: assetId
+                                });
+                            });
+                            toRemove.forEach(targetId => {
+                                reciprocalLinks.toRemove.push({
+                                    targetPath: `${linkConfig.targetCategoryPath}/children/${targetId}/details/${linkConfig.reciprocalField}/linksTo`,
+                                    sourceId: assetId
+                                });
+                            });
+                        }
+                    }
+                } else {
+                    const input = form.querySelector(`#input-${key}`);
+                    if (input && input.value !== detail.value) {
+                        hasChanged = true;
+                        updatedDetails[key].value = input.value;
+                    }
+                }
+            }
+
+            if (hasChanged) {
+                const idToken = await currentUser.getIdToken();
+                try {
+                    const response = await fetch('/.netlify/functions/update-support-asset', {
+                        method: 'POST',
+                        headers: { 'Authorization': `Bearer ${idToken}` },
+                        body: JSON.stringify({ assetPath, updatedDetails, reciprocalLinks })
+                    });
+                    if (!response.ok) throw new Error(await response.text());
+                    
+                    await loadInitialData();
+                    showAssetDetails(assetId, findParentId(assetId));
+
+                } catch (error) {
+                    console.error('Chyba při ukládání změn podpůrného aktiva:', error);
+                    alert('Nepodařilo se uložit změny. Zkontrolujte svá oprávnění.');
+                }
+            } else {
+                showAssetDetails(assetId, findParentId(assetId));
+            }
         }
+
         
         function showAssetDetails(assetId, parentId, changedKeys = []) {
             const asset = allAssets[assetId];
