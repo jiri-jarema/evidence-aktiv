@@ -85,19 +85,14 @@
 <body class="bg-gray-100 text-gray-800">
 
     <div class="flex flex-col h-screen">
-        <!-- Header -->
         <header class="bg-white shadow-md w-full p-4">
             <h1 class="text-2xl font-bold text-gray-700">Evidence aktiv Městského úřadu Vítkov</h1>
         </header>
 
-        <!-- Main Content -->
         <div class="flex flex-1 overflow-hidden">
-            <!-- Sidebar -->
             <nav id="sidebar" class="w-1/3 lg:w-1/4 bg-white border-r border-gray-200 overflow-y-auto p-4">
-                <!-- Navigation will be generated here -->
-            </nav>
+                </nav>
 
-            <!-- Content -->
             <main id="content" class="flex-1 p-6 overflow-y-auto">
                  <div class="bg-white p-4 rounded-lg shadow-md mb-6">
                     <dl class="details-grid">
@@ -113,8 +108,7 @@
                     <p>Prosím čekejte.</p>
                 </div>
                 <div id="asset-detail" class="hidden">
-                    <!-- Asset details will be rendered here -->
-                </div>
+                    </div>
             </main>
         </div>
     </div>
@@ -373,7 +367,7 @@
                                 for (const subKey in detail.value) {
                                     if (detail.value.hasOwnProperty(subKey)) {
                                         const listItem = document.createElement('li');
-                                        listItem.innerHTML = `<span class="font-medium">${subKey}:</span> ${detail.value[subKey]}`;
+                                        listItem.innerHTML = `<span class="font-medium capitalize">${subKey}:</span> ${detail.value[subKey]}`;
                                         subList.appendChild(listItem);
                                     }
                                 }
@@ -416,7 +410,26 @@
                         
                         const inputContainer = document.createElement('div');
 
-                        if (key === "Způsob zpracování") {
+                        if (key === "Lhůty pro výmaz" && detail.type === 'dictionary') {
+                            const subFormContainer = document.createElement('div');
+                            subFormContainer.className = 'space-y-2';
+                            for (const subKey in detail.value) {
+                                const subWrapper = document.createElement('div');
+                                const subLabel = document.createElement('label');
+                                subLabel.textContent = subKey;
+                                subLabel.className = 'block text-sm font-medium text-gray-500 capitalize';
+                                const subInput = document.createElement('input');
+                                subInput.type = 'text';
+                                subInput.id = `input-${assetId}-${sanitizedKey}-${sanitizeForId(subKey)}`;
+                                subInput.value = detail.value[subKey] || '';
+                                subInput.className = 'form-input mt-1';
+                                subWrapper.appendChild(subLabel);
+                                subWrapper.appendChild(subInput);
+                                subFormContainer.appendChild(subWrapper);
+                            }
+                            inputContainer.appendChild(subFormContainer);
+                        }
+                        else if (key === "Způsob zpracování") {
                             const methods = detail.value;
                             methods.forEach((method, methodIndex) => {
                                 const methodWrapper = document.createElement('div');
@@ -598,7 +611,8 @@
                 }
 
                 const buttonContainer = document.createElement('div');
-                buttonContainer.className = 'mt-6 flex justify-end space-x-4';
+                buttonContainer.className = 'mt-6 flex justify-end space-x-4 col-span-2';
+
 
                 const saveButton = document.createElement('button');
                 saveButton.textContent = 'Uložit';
@@ -618,7 +632,7 @@
                 
                 buttonContainer.appendChild(cancelButton);
                 buttonContainer.appendChild(saveButton);
-                assetDetailContainer.appendChild(buttonContainer);
+                form.appendChild(buttonContainer);
             }
 
             async function saveChanges(assetId) {
@@ -630,7 +644,25 @@
                 for (const key in updatedDetails) {
                     const detail = updatedDetails[key];
                     const sanitizedKey = sanitizeForId(key);
-                    if (key === "Způsob zpracování") {
+                    
+                    if (key === "Lhůty pro výmaz" && detail.type === 'dictionary') {
+                        let changed = false;
+                        const newLhutyValue = {};
+                        for (const subKey in detail.value) {
+                            const inputId = `input-${assetId}-${sanitizedKey}-${sanitizeForId(subKey)}`;
+                            const input = form.querySelector(`#${inputId}`);
+                            if (input && detail.value[subKey] !== input.value) {
+                                changed = true;
+                            }
+                            newLhutyValue[subKey] = input.value;
+                        }
+
+                        if (changed) {
+                            updatedDetails[key].value = newLhutyValue;
+                            changedKeys.push(key);
+                        }
+                    }
+                    else if (key === "Způsob zpracování") {
                         let changed = false;
                         const originalMethods = asset.details[key].value;
                         const newMethods = [];
@@ -742,7 +774,7 @@
                     showAssetDetails(assetId, findParentId(assetId));
                 }
             }
-
+            
             function showAssetDetails(assetId, parentId, changedKeys = []) {
                 const asset = allAssets[assetId];
                 if (!asset) return;
@@ -841,5 +873,3 @@
     </script>
 </body>
 </html>
-
-
