@@ -257,6 +257,20 @@
             return parentMap[childId];
         }
 
+        function getPathForAsset(assetId) {
+            let path = [];
+            let currentId = assetId;
+            while(currentId) {
+                path.unshift(currentId);
+                currentId = findParentId(currentId);
+            }
+            return path.join('/children/');
+        }
+
+        function getObjectByPath(obj, path) {
+            return path.split('/children/').reduce((acc, part) => acc && acc.children ? acc.children[part] : (acc[part] || null), obj);
+        }
+
         function buildNav(data, parentElement, level = 0) {
             if (level >= 2) return;
             const ul = document.createElement('ul');
@@ -483,281 +497,261 @@
              assetDetailContainer.appendChild(detailsGrid);
         }
 
-        // --- ZDE ZAČÍNAJÍ KOMPLETNÍ FUNKCE Z PŘEDCHOZÍCH ODPOVĚDÍ ---
-        
         function renderEditForm(assetId) {
-            // ... (Tato funkce bude nahrazena níže)
-        }
-        
-        async function saveChanges(assetId) {
-            // ... (Tato funkce bude nahrazena níže)
-        }
-
-        async function saveAgendaChanges(assetId) {
             const asset = allAssets[assetId];
-            const form = document.getElementById(`form-${assetId}`);
-            const changedKeys = [];
-            const updatedDetails = JSON.parse(JSON.stringify(asset.details)); 
-
-            for (const key in updatedDetails) {
-                const detail = updatedDetails[key];
-                const sanitizedKey = sanitizeForId(key);
-                
-                if (key === "Lhůty pro výmaz" && detail.type === 'dictionary') {
-                    let changed = false;
-                    const newLhutyValue = {};
-                    for (const subKey in detail.value) {
-                        const inputId = `input-${assetId}-${sanitizedKey}-${sanitizeForId(subKey)}`;
-                        const input = form.querySelector(`#${inputId}`);
-                        if (input && detail.value[subKey] !== input.value) {
-                            changed = true;
-                        }
-                        newLhutyValue[subKey] = input.value;
-                    }
-
-                    if (changed) {
-                        updatedDetails[key].value = newLhutyValue;
-                        changedKeys.push(key);
-                    }
-                }
-                else if (key === "Způsob zpracování") {
-                    let changed = false;
-                    const originalMethods = asset.details[key].value;
-                    const newMethods = [];
-
-                    originalMethods.forEach((method, methodIndex) => {
-                        const newMethod = { ...method };
-                        const checkbox = form.querySelector(`#input-${assetId}-${sanitizedKey}-${methodIndex}`);
-                        if (!checkbox) return;
-
-                        const isNowChecked = checkbox.checked;
-
-                        if (newMethod.checked !== isNowChecked) {
-                            newMethod.checked = isNowChecked;
-                            changed = true;
-                        }
-
-                        if (isNowChecked) {
-                            if (method.label.includes("agendový informační systém")) {
-                                const linkedContainer = document.getElementById(`linked-systems-${assetId}`);
-                                const newLinks = Array.from(linkedContainer.children).map(div => div.dataset.systemId);
-                                if (JSON.stringify(newMethod.linksTo || []) !== JSON.stringify(newLinks)) {
-                                    newMethod.linksTo = newLinks;
-                                    changed = true;
-                                }
-                            } else if (method.details !== undefined) {
-                                const detailsInput = form.querySelector(`#input-${assetId}-${sanitizedKey}-${methodIndex}-details`);
-                                if (detailsInput && newMethod.details !== detailsInput.value) {
-                                    newMethod.details = detailsInput.value;
-                                    changed = true;
-                                }
-                            }
-                        } else {
-                            if (method.details !== undefined && newMethod.details !== "") {
-                                newMethod.details = "";
-                                changed = true;
-                            }
-                            if (method.linksTo !== undefined && (newMethod.linksTo || []).length > 0) {
-                                newMethod.linksTo = [];
-                                changed = true;
-                            }
-                        }
-                        newMethods.push(newMethod);
-                    });
-                    
-                    if (JSON.stringify(originalMethods) !== JSON.stringify(newMethods)) {
-                       updatedDetails[key].value = newMethods;
-                       if (!changedKeys.includes(key)) changedKeys.push(key);
-                    }
-                }
-                else if ((detail.type === 'checkbox-list' && detail.optionsKey) || detail.type === 'security') {
-                    let changed = false;
-                    const checkedArray = detail.checked || detail.value;
-                    const newChecked = [];
-                    const optionsKey = detail.optionsKey || (key.includes('elektronické') ? 'securityElectronic' : 'securityAnalog');
-                    
-                    sharedOptions[optionsKey].forEach((_, index) => {
-                        const checkbox = form.querySelector(`#input-${assetId}-${sanitizedKey}-${index}`);
-                        if (checkbox) {
-                            if (checkedArray[index] !== checkbox.checked) {
-                                changed = true;
-                            }
-                            newChecked.push(checkbox.checked);
-                        }
-                    });
-
-                    if (changed) {
-                        if(detail.checked) {
-                            updatedDetails[key].checked = newChecked;
-                        } else {
-                            updatedDetails[key].value = newChecked;
-                        }
-                        changedKeys.push(key);
-                    }
-                } else if (detail.type === 'lawfulness') {
-                    const select = form.querySelector(`#input-${assetId}-${sanitizedKey}`);
-                    if (select && detail.value !== select.value) {
-                        updatedDetails[key].value = select.value;
-                        changedKeys.push(key);
-                    }
-                } else if (detail.value !== undefined && typeof detail.value === 'string') {
-                    const input = form.querySelector(`#input-${assetId}-${sanitizedKey}`);
-                    if (input && detail.value !== input.value) {
-                        updatedDetails[key].value = input.value;
-                        changedKeys.push(key);
-                    }
-                }
-            }
-            
-            if (changedKeys.length > 0) {
-                const parentId = findParentId(assetId);
-                const agendaPath = `agendy/children/${parentId}/children/${assetId}`;
-                const idToken = await currentUser.getIdToken();
-                
-                const originalAisMethod = asset.details["Způsob zpracování"]?.value.find(m => m.label.includes("agendový"));
-                const updatedAisMethod = updatedDetails["Způsob zpracování"]?.value.find(m => m.label.includes("agendový"));
-                const originalLinks = originalAisMethod?.linksTo?.slice() || [];
-                const newLinks = updatedAisMethod?.linksTo?.slice() || [];
-
-                const linksToAdd = newLinks.filter(id => !originalLinks.includes(id));
-                const linksToRemove = originalLinks.filter(id => !newLinks.includes(id));
-
-                try {
-                    const response = await fetch('/.netlify/functions/update-agenda', {
-                        method: 'POST',
-                        headers: { 'Authorization': `Bearer ${idToken}` },
-                        body: JSON.stringify({ 
-                            agendaPath, 
-                            updatedAgendaDetails: updatedDetails,
-                            linksToAdd,
-                            linksToRemove,
-                            agendaId: assetId
-                        })
-                    });
-                    if (!response.ok) throw new Error(await response.text());
-
-                    await loadInitialData();
-                    showAssetDetails(assetId, parentId, changedKeys);
-                } catch (error) {
-                    console.error('Chyba při ukládání změn agendy:', error);
-                    alert('Nepodařilo se uložit změny. Zkontrolujte svá oprávnění.');
-                }
-            } else {
-                showAssetDetails(assetId, findParentId(assetId));
-            }
-        }
-        
-        function showAssetDetails(assetId, parentId, changedKeys = []) {
-            const asset = allAssets[assetId];
-            if (!asset) return;
-            welcomeMessage.classList.add('hidden');
-            assetDetailContainer.classList.remove('hidden');
             assetDetailContainer.innerHTML = '';
-            document.querySelectorAll('.sidebar-item.active').forEach(el => el.classList.remove('active'));
-            if (parentId) {
-               document.querySelector(`.sidebar-item[data-id="${parentId}"]`)?.classList.add('active');
-            }
-            if (parentId && allAssets[parentId]) {
-                const parentAsset = allAssets[parentId];
-                const breadcrumbs = document.createElement('div');
-                breadcrumbs.className = 'mb-4 text-sm';
 
-                const parentLink = document.createElement('a');
-                parentLink.className = 'asset-link';
-                parentLink.textContent = parentAsset.name;
-                parentLink.onclick = (e) => {
-                    e.stopPropagation();
-                    showCategoryContent(parentId);
-                };
-                
-                const separator = document.createElement('span');
-                separator.className = 'mx-2 text-gray-400';
-                separator.textContent = '/';
-                
-                const currentAssetText = document.createElement('span');
-                currentAssetText.className = 'text-gray-600';
-                currentAssetText.textContent = asset.name;
-
-                breadcrumbs.appendChild(parentLink);
-                breadcrumbs.appendChild(separator);
-                breadcrumbs.appendChild(currentAssetText);
-                assetDetailContainer.appendChild(breadcrumbs);
-            }
-            const titleContainer = document.createElement('div');
-            titleContainer.className = 'flex justify-between items-center border-b border-gray-300 mb-6 pb-2';
             const title = document.createElement('h2');
-            title.textContent = asset.name;
-            title.className = 'text-3xl font-bold';
-            titleContainer.appendChild(title);
+            title.textContent = `Úprava: ${asset.name}`;
+            title.className = 'text-3xl font-bold mb-6 pb-2 border-b border-gray-300';
+            assetDetailContainer.appendChild(title);
 
-            const grandparentId = findParentId(parentId);
-            const isAgenda = grandparentId === 'agendy';
-            const isSupportOrPrimary = grandparentId === 'podpurna' || grandparentId === 'primarni';
+            const form = document.createElement('form');
+            form.id = `form-${assetId}`;
+            form.className = 'edit-form-grid';
+            
+            const formElements = document.createDocumentFragment();
 
-            let canEdit = false;
-            if (isAgenda && (userRole === 'administrator' || (userRole === 'garant' && userOdbor === parentId))) {
-                canEdit = true;
-            } else if (isSupportOrPrimary && userRole === 'administrator') {
-                canEdit = true;
-            }
+            detailOrder.forEach(key => {
+                if (asset.details[key]) {
+                    const detail = asset.details[key];
+                    const label = document.createElement('label');
+                    label.textContent = key;
+                    const sanitizedKey = sanitizeForId(key);
+                    label.htmlFor = `input-${assetId}-${sanitizedKey}`;
+                    
+                    const inputContainer = document.createElement('div');
 
-            if (canEdit) {
-                const editButton = document.createElement('button');
-                editButton.textContent = 'Upravit';
-                editButton.className = 'px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300';
-                if (isAgenda) {
-                    editButton.onclick = () => renderEditForm(assetId);
-                } else {
-                    editButton.onclick = () => renderSupportAssetEditForm(assetId);
+                    if (key === "Lhůty pro výmaz" && detail.type === 'dictionary') {
+                        const subFormContainer = document.createElement('div');
+                        subFormContainer.className = 'space-y-2';
+                        for (const subKey in detail.value) {
+                            const subWrapper = document.createElement('div');
+                            const subLabel = document.createElement('label');
+                            subLabel.textContent = subKey;
+                            subLabel.className = 'block text-sm font-medium text-gray-500 capitalize';
+                            const subInput = document.createElement('input');
+                            subInput.type = 'text';
+                            subInput.id = `input-${assetId}-${sanitizedKey}-${sanitizeForId(subKey)}`;
+                            subInput.value = detail.value[subKey] || '';
+                            subInput.className = 'form-input mt-1';
+                            subWrapper.appendChild(subLabel);
+                            subWrapper.appendChild(subInput);
+                            subFormContainer.appendChild(subWrapper);
+                        }
+                        inputContainer.appendChild(subFormContainer);
+                    }
+                    else if (key === "Způsob zpracování") {
+                        const methods = detail.value;
+                        methods.forEach((method, methodIndex) => {
+                            const methodWrapper = document.createElement('div');
+                            const methodId = `input-${assetId}-${sanitizedKey}-${methodIndex}`;
+                            
+                            const checkboxWrapper = document.createElement('div');
+                            checkboxWrapper.className = 'flex items-center';
+
+                            const checkbox = document.createElement('input');
+                            checkbox.type = 'checkbox';
+                            checkbox.id = methodId;
+                            checkbox.checked = method.checked;
+                            
+                            const checkboxLabel = document.createElement('label');
+                            checkboxLabel.htmlFor = methodId;
+                            checkboxLabel.textContent = method.label;
+                            checkboxLabel.className = "ml-2";
+
+                            checkboxWrapper.appendChild(checkbox);
+                            checkboxWrapper.appendChild(checkboxLabel);
+                            methodWrapper.appendChild(checkboxWrapper);
+
+                            if (method.label.includes("agendový informační systém")) {
+                                const isSelectorContainer = document.createElement('div');
+                                isSelectorContainer.className = 'ml-8 mt-2 p-2 border border-gray-200 rounded';
+                                
+                                const linkedSystemsContainer = document.createElement('div');
+                                linkedSystemsContainer.id = `linked-systems-${assetId}`;
+                                
+                                const addSystemWrapper = document.createElement('div');
+                                addSystemWrapper.className = 'mt-2 flex items-center space-x-2';
+
+                                const select = document.createElement('select');
+                                select.id = `is-select-${assetId}`;
+                                select.className = 'form-input';
+                                
+                                const addButton = document.createElement('button');
+                                addButton.textContent = 'Přidat';
+                                addButton.className = 'px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600';
+                                addButton.type = 'button';
+                                
+                                addSystemWrapper.appendChild(select);
+                                addSystemWrapper.appendChild(addButton);
+                                
+                                isSelectorContainer.appendChild(linkedSystemsContainer);
+                                isSelectorContainer.appendChild(addSystemWrapper);
+                                methodWrapper.appendChild(isSelectorContainer);
+                            } else if (method.details !== undefined) {
+                                const detailsInput = document.createElement('input');
+                                detailsInput.type = 'text';
+                                detailsInput.id = `${methodId}-details`;
+                                detailsInput.value = method.details;
+                                detailsInput.className = 'form-input mt-1 ml-8';
+                                methodWrapper.appendChild(detailsInput);
+                            }
+                            inputContainer.appendChild(methodWrapper);
+                        });
+                    }
+                    else if ((detail.type === 'checkbox-list' && detail.optionsKey) || detail.type === 'security') {
+                        const optionsKey = detail.optionsKey || (key.includes('elektronické') ? 'securityElectronic' : 'securityAnalog');
+                        const options = sharedOptions[optionsKey];
+                        const checked = detail.checked || detail.value;
+
+                        if (options && Array.isArray(checked)) {
+                            options.forEach((option, index) => {
+                                const checkboxId = `input-${assetId}-${sanitizedKey}-${index}`;
+                                const wrapper = document.createElement('div');
+                                wrapper.className = 'flex items-center';
+                                const checkbox = document.createElement('input');
+                                checkbox.type = 'checkbox';
+                                checkbox.id = checkboxId;
+                                checkbox.checked = checked[index];
+                                const checkboxLabel = document.createElement('label');
+                                checkboxLabel.htmlFor = checkboxId;
+                                checkboxLabel.textContent = option;
+                                checkboxLabel.className = "ml-2";
+                                wrapper.appendChild(checkbox);
+                                wrapper.appendChild(checkboxLabel);
+                                inputContainer.appendChild(wrapper);
+                            });
+                        }
+                    } else if (detail.type === 'lawfulness') {
+                        const select = document.createElement('select');
+                        select.id = `input-${assetId}-${sanitizedKey}`;
+                        select.className = 'form-input';
+                        sharedOptions.lawfulness.forEach(option => {
+                            const optionEl = document.createElement('option');
+                            const value = option.split(')')[0];
+                            optionEl.value = value;
+                            optionEl.textContent = option;
+                            if (detail.value === value) {
+                                optionEl.selected = true;
+                            }
+                            select.appendChild(optionEl);
+                        });
+                        inputContainer.appendChild(select);
+                    } else if (detail.value !== undefined && typeof detail.value === 'string') {
+                         const input = document.createElement('input');
+                         input.type = 'text';
+                         input.id = `input-${assetId}-${sanitizedKey}`;
+                         input.value = detail.value;
+                         input.className = 'form-input';
+                         inputContainer.appendChild(input);
+                    } else {
+                        const text = document.createElement('p');
+                        text.textContent = 'Tuto položku nelze upravovat.';
+                        inputContainer.appendChild(text);
+                    }
+                    formElements.appendChild(label);
+                    formElements.appendChild(inputContainer);
                 }
-                titleContainer.appendChild(editButton);
-            }
-            assetDetailContainer.appendChild(titleContainer);
+            });
+            form.appendChild(formElements);
+            assetDetailContainer.appendChild(form);
+            
+            const zpDetail = asset.details["Způsob zpracování"];
+            if (zpDetail) {
+                const aisMethod = zpDetail.value.find(m => m.label.includes("agendový informační systém"));
+                if (aisMethod) {
+                    const linkedSystemsContainer = document.getElementById(`linked-systems-${assetId}`);
+                    const selectEl = document.getElementById(`is-select-${assetId}`);
+                    const addButton = selectEl.nextElementSibling;
 
-            if (asset.type === 'sluzba-uradu') {
-                renderServiceDetails(asset, parentId);
-            } else {
-                renderGenericDetails(asset, assetId, changedKeys);
+                    const addLinkedSystem = (container, systemId, systemName) => {
+                        const systemDiv = document.createElement('div');
+                        systemDiv.className = 'flex items-center justify-between p-1';
+                        systemDiv.dataset.systemId = systemId;
+                        
+                        const nameSpan = document.createElement('span');
+                        nameSpan.textContent = systemName;
+                        
+                        const removeButton = document.createElement('button');
+                        removeButton.textContent = 'Odebrat';
+                        removeButton.className = 'px-2 py-0.5 bg-red-500 text-white text-xs rounded hover:bg-red-600';
+                        removeButton.type = 'button';
+                        removeButton.onclick = () => {
+                            systemDiv.remove();
+                            updateAddSystemDropdown();
+                        };
+                        
+                        systemDiv.appendChild(nameSpan);
+                        systemDiv.appendChild(removeButton);
+                        container.appendChild(systemDiv);
+                    };
+
+                    const updateAddSystemDropdown = () => {
+                        const currentlyLinkedIds = Array.from(linkedSystemsContainer.children).map(div => div.dataset.systemId);
+                        
+                        selectEl.innerHTML = '<option value="">Vyberte systém...</option>';
+                        const allSystems = assetData.primarni.children['informacni-systemy'].children;
+
+                        for (const systemId in allSystems) {
+                            if (!currentlyLinkedIds.includes(systemId)) {
+                                const option = document.createElement('option');
+                                option.value = systemId;
+                                option.textContent = allSystems[systemId].name;
+                                selectEl.appendChild(option);
+                            }
+                        }
+                    };
+
+                    addButton.onclick = () => {
+                        const selectedId = selectEl.value;
+                        if (!selectedId) return;
+                        const selectedAsset = allAssets[selectedId];
+                        addLinkedSystem(linkedSystemsContainer, selectedId, selectedAsset.name);
+                        updateAddSystemDropdown();
+                    };
+                    
+                    (aisMethod.linksTo || []).forEach(systemId => {
+                        if(allAssets[systemId]) {
+                            addLinkedSystem(linkedSystemsContainer, systemId, allAssets[systemId].name);
+                        }
+                    });
+                    updateAddSystemDropdown();
+                }
             }
+
+            const buttonContainer = document.createElement('div');
+            buttonContainer.className = 'mt-6 flex justify-end space-x-4 col-span-2';
+
+            const saveButton = document.createElement('button');
+            saveButton.textContent = 'Uložit';
+            saveButton.className = 'px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700';
+            saveButton.onclick = (e) => {
+                e.preventDefault();
+                saveAgendaChanges(assetId);
+            };
+
+            const cancelButton = document.createElement('button');
+            cancelButton.textContent = 'Zrušit';
+            cancelButton.className = 'px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300';
+            cancelButton.onclick = (e) => {
+                e.preventDefault();
+                showAssetDetails(assetId, findParentId(assetId));
+            };
+            
+            buttonContainer.appendChild(cancelButton);
+            buttonContainer.appendChild(saveButton);
+            form.appendChild(buttonContainer);
+        }
+
+        async function saveSupportAssetChanges(assetId) {
+            // ...
         }
         
-        async function loadInitialData() {
-             try {
-                const response = await fetch('/.netlify/functions/get-data');
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-                const data = await response.json();
-
-                if (!data || !data.primarni || !data.podpurna || !data.agendy || !data.options) {
-                    throw new Error("Načtená data nemají správnou strukturu.");
-                }
-
-                assetData = {
-                    primarni: data.primarni,
-                    podpurna: data.podpurna,
-                    agendy: data.agendy
-                };
-                sharedOptions = data.options;
-                
-                allAssets = flattenData(assetData);
-                buildParentMap(assetData);
-                
-                sidebar.innerHTML = ''; 
-                buildNav(assetData, sidebar);
-
-                welcomeMessage.querySelector('h2').textContent = 'Vítejte v evidenci aktiv';
-                welcomeMessage.querySelector('p').textContent = 'Vyberte položku z menu vlevo pro zobrazení detailů.';
-
-            } catch (error) {
-                console.error('Chyba při načítání dat:', error);
-                welcomeMessage.querySelector('h2').textContent = 'Chyba při načítání dat';
-                welcomeMessage.querySelector('p').textContent = 'Zkuste prosím obnovit stránku. Chyba: ' + error.message;
-            }
+        function renderSupportAssetEditForm(assetId) {
+            // ...
         }
 
-        // --- INICIALIZACE APLIKACE ---
-        // Spustí se po úspěšném přihlášení v onAuthStateChanged
     </script>
 </body>
 </html>
