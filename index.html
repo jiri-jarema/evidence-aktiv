@@ -170,6 +170,11 @@
             }
 
             function buildNav(data, parentElement, level = 0) {
+                // OPRAVA: Zastaví rekurzi a vykreslování pro úroveň 2 a hlubší.
+                if (level >= 2) {
+                    return;
+                }
+
                 const ul = document.createElement('ul');
                 if (level > 0) ul.style.paddingLeft = `${(level-1) * 16}px`;
                 
@@ -180,10 +185,18 @@
                     itemDiv.textContent = item.name;
                     itemDiv.dataset.id = key;
                     itemDiv.className = level === 0 ? 'font-bold text-lg mt-4 cursor-default' : 'p-2 rounded-md sidebar-item';
-                    if (level > 0) itemDiv.onclick = () => showCategoryContent(key);
+                    
+                    // Pouze podkategorie (úroveň 1) jsou klikatelné.
+                    if (level > 0) {
+                        itemDiv.onclick = () => showCategoryContent(key);
+                    }
                     
                     li.appendChild(itemDiv);
-                    if (item.children) buildNav(item.children, li, level + 1);
+
+                    // Rekurzivně postaví další úroveň, pokud existuje.
+                    if (item.children) {
+                        buildNav(item.children, li, level + 1);
+                    }
                     ul.appendChild(li);
                 }
                 parentElement.appendChild(ul);
