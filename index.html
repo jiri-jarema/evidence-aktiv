@@ -366,9 +366,23 @@
                             } else if (detail.type === 'security') { // Handle old security format
                                 renderCheckboxList(sharedOptions.securityElectronic, detail.value, dd);
                             } else if (detail.linksTo) {
-                                dd.appendChild(createLinksFragment(detail.linksTo));
-                            } else {
-                                dd.textContent = detail.value || '-';
+    dd.appendChild(createLinksFragment(detail.linksTo));
+} else if (detail.type === 'dictionary' && typeof detail.value === 'object') {
+    // Zpracování nové struktury "Lhůty pro výmaz"
+    const subList = document.createElement('ul');
+    subList.className = 'list-disc list-inside';
+    for (const key in detail.value) {
+        if (detail.value.hasOwnProperty(key)) {
+            const listItem = document.createElement('li');
+            listItem.innerHTML = `<strong>${key}:</strong> ${detail.value[key]}`;
+            subList.appendChild(listItem);
+        }
+    }
+    dd.appendChild(subList);
+}
+else {
+    dd.textContent = detail.value || '-';
+}
                             }
                             detailsGrid.appendChild(dt);
                             detailsGrid.appendChild(dd);
@@ -815,3 +829,4 @@
     </script>
 </body>
 </html>
+
