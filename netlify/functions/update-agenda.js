@@ -1,6 +1,7 @@
 // netlify/functions/update-agenda.js
 const admin = require('firebase-admin');
 
+// Inicializace Firebase Admin SDK
 const serviceAccount = JSON.parse(process.env.FIREBASE_CREDENTIALS);
 const databaseURL = process.env.FIREBASE_DATABASE_URL;
 
@@ -13,14 +14,54 @@ if (!admin.apps.length) {
 
 const db = admin.database();
 
+// Pomocná funkce pro ověření uživatele a jeho role
+async function verifyUser(authorization) {
+    if (!authorization || !authorization.startsWith('Bearer ')) {
+        return { error: { statusCode: 401, body: 'Unauthorized: Missing token' } };
+    }
+    const idToken = authorization.split('Bearer ')[1];
+    try {
+        const decodedToken = await admin.auth().verifyIdToken(idToken);
+        const uid = decodedToken.uid;
+        const userSnapshot = await db.ref(`users/${uid}`).once('value');
+        const userData = userSnapshot.val();
+        if (!userData || !userData.role) {
+            return { error: { statusCode: 403, body: 'Forbidden: No role assigned' } };
+        }
+        return { user: { uid, ...userData } };
+    } catch (error) {
+        console.error("Token verification failed:", error);
+        return { error: { statusCode: 401, body: 'Unauthorized: Invalid token' } };
+    }
+}
+
 exports.handler = async function(event, context) {
     if (event.httpMethod !== 'POST') {
         return { statusCode: 405, body: 'Method Not Allowed' };
     }
 
+    // Ověření uživatele
+    const { user, error } = await verifyUser(event.headers.authorization);
+    if (error) {
+        return error;
+    }
+
     try {
         const { agendaPath, updatedAgendaDetails, linksToAdd, linksToRemove, agendaId } = JSON.parse(event.body);
         
+        // Získání ID odboru z cesty k agendě
+        const odborId = agendaPath.split('/')[2];
+        if (!odborId) {
+            return { statusCode: 400, body: JSON.stringify({ error: 'Bad Request: Invalid agenda path.' }) };
+        }
+
+        // Kontrola oprávnění pro zápis
+        const canWrite = user.role === 'administrator' || (user.role === 'garant' && user.odbor === odborId);
+
+        if (!canWrite) {
+            return { statusCode: 403, body: JSON.stringify({ error: 'Forbidden: Insufficient permissions.' }) };
+        }
+
         const updates = {};
         
         // 1. Připraví aktualizaci pro samotnou agendu
@@ -53,8 +94,8 @@ exports.handler = async function(event, context) {
             statusCode: 200,
             body: JSON.stringify({ success: true }),
         };
-    } catch (error) {
-        console.error("Chyba při aktualizaci agendy a vazeb:", error);
+    } catch (err) {
+        console.error("Chyba při aktualizaci agendy a vazeb:", err);
         return {
             statusCode: 500,
             body: JSON.stringify({ error: 'Failed to update agenda.' }),
