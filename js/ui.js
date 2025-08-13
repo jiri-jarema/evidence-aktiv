@@ -1225,13 +1225,10 @@ async function saveSupportAssetChanges(assetId) {
                         const toRemove = originalLinks.filter(id => !newLinks.includes(id));
 
                         const createReciprocalPath = (targetId) => {
-                            // For services, we need to build the full path dynamically
-                            const serviceParentId = utils.findParentId(targetId); 
-                            const serviceGrandparentId = utils.findParentId(serviceParentId);
-                            const serviceGreatGrandparentId = utils.findParentId(serviceGrandparentId);
-                            // Check if the path is for a service to avoid errors with other types
-                            if (serviceGreatGrandparentId === 'primarni' && serviceGrandparentId === 'sluzby') {
-                                return `${serviceGreatGrandparentId}/children/${serviceGrandparentId}/children/${serviceParentId}/children/${targetId}/details/${linkConfig.reciprocalField.replace(/_/g, ' ')}/linksTo`;
+                             // This logic handles the deeply nested structure of services
+                            const targetAsset = allAssets[targetId];
+                            if (targetAsset && targetAsset.type === 'jednotliva-sluzba') {
+                                return utils.getPathForAsset(targetId) + `/details/${linkConfig.reciprocalField.replace(/_/g, ' ')}/linksTo`;
                             } else {
                                 // Generic path for other types
                                 return `${linkConfig.targetCategoryPath}/children/${targetId}/details/${linkConfig.reciprocalField}/linksTo`;

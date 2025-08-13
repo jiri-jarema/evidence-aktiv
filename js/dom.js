@@ -9,3 +9,4 @@ export const userInfo = document.getElementById('user-info');
 export const sidebar = document.getElementById('sidebar');
 export const assetDetailContainer = document.getElementById('asset-detail');
 export const welcomeMessage = document.getElementById('welcome-message');
+export const userManagementButton = document.getElementById('user-management-button');
