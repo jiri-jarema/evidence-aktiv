@@ -1,10 +1,8 @@
-import { getCurrentUser, setAssetData, setSharedOptions, setAllAssets, setParentMap } from './state.js';
-import { buildNav } from './ui.js';
-import { flattenData, buildParentMap } from './utils.js';
-import * as dom from './dom.js';
+import { getCurrentUser } from './state.js';
 
 /**
- * Fetches the initial data from the server and populates the app.
+ * Fetches the initial data from the server.
+ * @returns {Promise<{success: boolean, data?: object, error?: Error}>} - An object with data or an error.
  */
 export async function loadInitialData() {
      try {
@@ -17,36 +15,10 @@ export async function loadInitialData() {
         if (!data || !data.primarni || !data.podpurna || !data.agendy || !data.options) {
             throw new Error("Načtená data nemají správnou strukturu.");
         }
-
-        const newAssetData = {
-            primarni: data.primarni,
-            podpurna: data.podpurna,
-            agendy: data.agendy
-        };
-        
-        setAssetData(newAssetData);
-        setSharedOptions(data.options);
-        
-        const flatData = flattenData(newAssetData);
-        setAllAssets(flatData);
-
-        const newParentMap = {};
-        buildParentMap(newAssetData, newParentMap);
-        setParentMap(newParentMap);
-        
-        dom.sidebar.innerHTML = ''; 
-        buildNav(newAssetData, dom.sidebar);
-
-        dom.welcomeMessage.querySelector('h2').textContent = 'Vítejte v evidenci aktiv';
-        dom.welcomeMessage.querySelector('p').textContent = 'Vyberte položku z menu vlevo pro zobrazení detailů.';
-        dom.welcomeMessage.classList.remove('hidden');
-        dom.assetDetailContainer.classList.add('hidden');
-
-
+        return { success: true, data };
     } catch (error) {
         console.error('Chyba při načítání dat:', error);
-        dom.welcomeMessage.querySelector('h2').textContent = 'Chyba při načítání dat';
-        dom.welcomeMessage.querySelector('p').textContent = 'Zkuste prosím obnovit stránku. Chyba: ' + error.message;
+        return { success: false, error };
     }
 }
 
@@ -147,6 +119,31 @@ export async function updateSupportAsset(payload) {
         return true;
     } catch (error) {
         console.error('Chyba při ukládání změn podpůrného aktiva:', error);
+        alert('Nepodařilo se uložit změny. Zkontrolujte svá oprávnění.');
+        return false;
+    }
+}
+
+/**
+ * Updates a service asset on the server.
+ * @param {object} payload - The data payload for the update.
+ * @returns {Promise<boolean>} - True if successful, false otherwise.
+ */
+export async function updateService(payload) {
+    const user = getCurrentUser();
+    if (!user) return false;
+
+    const idToken = await user.getIdToken();
+    try {
+        const response = await fetch('/.netlify/functions/update-service', {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${idToken}` },
+            body: JSON.stringify(payload)
+        });
+        if (!response.ok) throw new Error(await response.text());
+        return true;
+    } catch (error) {
+        console.error('Chyba při ukládání změn služby:', error);
         alert('Nepodařilo se uložit změny. Zkontrolujte svá oprávnění.');
         return false;
     }
