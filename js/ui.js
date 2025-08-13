@@ -1183,26 +1183,23 @@ async function saveSupportAssetChanges(assetId) {
         
         let detailTemplate = originalDetail || {};
         if (!originalDetail) {
-            if (asset.type === 'jednotliva-sluzba' && key === 'Agendový informační systém') {
+            if (key === 'Agendový informační systém') {
                 detailTemplate = { linksTo: [] };
-            } else if (key === 'Legislativa') { // General case for simple value fields
+            } else {
                 detailTemplate = { value: '' };
             }
         }
         
         const newDetail = getDetailDataFromForm(assetId, key, detailTemplate);
         
-        updatedDetails[key] = newDetail;
-
         if (JSON.stringify(originalDetail) !== JSON.stringify(newDetail)) {
             hasChanged = true;
-        }
+            updatedDetails[key] = newDetail;
 
-        if (newDetail.linksTo !== undefined) {
-            const newLinks = newDetail.linksTo;
-            const originalLinks = (originalDetail && Array.isArray(originalDetail.linksTo)) ? originalDetail.linksTo : [];
-
-            if (JSON.stringify(newLinks.sort()) !== JSON.stringify(originalLinks.sort())) {
+            if (newDetail.linksTo !== undefined) {
+                const newLinks = newDetail.linksTo;
+                const originalLinks = (originalDetail && Array.isArray(originalDetail.linksTo)) ? originalDetail.linksTo : [];
+                
                 const assetCategoryPath = Object.keys(state.reciprocalMap).find(p => assetPath.startsWith(p));
                 const linkConfig = state.reciprocalMap[assetCategoryPath]?.[key.replace(/ /g, '_')];
 
