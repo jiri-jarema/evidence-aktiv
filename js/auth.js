@@ -32,7 +32,7 @@ export function initializeAuth() {
 async function handleLogin(user) {
     try {
         ui.showLoading();
-        // THE FIX IS HERE: Destructure the 'role' property from the object returned by the API.
+        // FIX: Destructure the 'role' property from the object returned by the API.
         const { role } = await api.getUserRole();
         
         // Set the user's role in the application state.
@@ -93,7 +93,19 @@ export async function logOut() {
     }
 }
 
-// Function to get the current authenticated user.
+/**
+ * Function to get the current authenticated user.
+ * @returns {object|null} The current user object or null if not signed in.
+ */
 export function getCurrentUser() {
     return auth.currentUser;
+}
+
+/**
+ * Re-fetches all data and rebuilds the UI.
+ * This function is exported to be used from the UI module (ui.js) 
+ * to trigger a data refresh after operations like creating or editing users.
+ */
+export async function reloadDataAndRebuildUI() {
+    await fetchDataAndRender();
 }
