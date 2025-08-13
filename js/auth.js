@@ -1,110 +1,99 @@
-import { auth, db } from './firebase.js';
-import { setCurrentUser, setUserRole, setUserOdbor, setAssetData, setSharedOptions, setAllAssets, setParentMap } from './state.js';
-import { loadInitialData } from './api.js';
-import * as dom from './dom.js';
-import { flattenData, buildParentMap } from './utils.js';
-import { buildNav } from './ui.js';
+import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+import * as api from './api.js';
+import * as ui from './ui.js';
+import * as state from './state.js';
+import { fetchDataAndRender } from './main.js';
+
+let auth;
 
 /**
- * Loads all data from the server, processes it, and rebuilds the entire UI.
- * This function serves as the central point for refreshing the application state.
- * @returns {Promise<boolean>} - True if data was loaded and UI was rebuilt successfully, false otherwise.
+ * Initializes Firebase authentication and sets up an observer for auth state changes.
  */
-export async function reloadDataAndRebuildUI() {
-    const result = await loadInitialData();
-    if (result.success) {
-        const data = result.data;
-        const newAssetData = {
-            primarni: data.primarni,
-            podpurna: data.podpurna,
-            agendy: data.agendy
-        };
-        
-        setAssetData(newAssetData);
-        setSharedOptions(data.options);
-        
-        const flatData = flattenData(newAssetData);
-        setAllAssets(flatData);
+export function initializeAuth() {
+    auth = getAuth();
+    onAuthStateChanged(auth, async (user) => {
+        ui.hideLoading();
+        if (user) {
+            // User is signed in.
+            await handleLogin(user);
+        } else {
+            // User is signed out.
+            handleLogout();
+        }
+        // Update the login state in the UI (e.g., show/hide login/logout buttons).
+        ui.updateLoginState(user);
+    });
+}
 
-        const newParentMap = {};
-        buildParentMap(newAssetData, newParentMap);
-        setParentMap(newParentMap);
+/**
+ * Handles the user login process.
+ * @param {object} user - The user object from Firebase Auth.
+ */
+async function handleLogin(user) {
+    try {
+        ui.showLoading();
+        // THE FIX IS HERE: Destructure the 'role' property from the object returned by the API.
+        const { role } = await api.getUserRole();
         
-        dom.sidebar.innerHTML = ''; 
-        buildNav(newAssetData, dom.sidebar);
-
-        dom.welcomeMessage.querySelector('h2').textContent = 'Vítejte v evidenci aktiv';
-        dom.welcomeMessage.querySelector('p').textContent = 'Vyberte položku z menu vlevo pro zobrazení detailů.';
-        dom.welcomeMessage.classList.remove('hidden');
-        dom.assetDetailContainer.classList.add('hidden');
-        return true;
-    } else {
-        dom.welcomeMessage.querySelector('h2').textContent = 'Chyba při načítání dat';
-        dom.welcomeMessage.querySelector('p').textContent = 'Zkuste prosím obnovit stránku. Chyba: ' + result.error.message;
-        return false;
+        // Set the user's role in the application state.
+        state.setUserRole(role);
+        
+        // Update the UI visibility based on the user's role (e.g., show admin buttons).
+        ui.updateUIVisibility(role);
+        
+        // Fetch the main application data and render it.
+        await fetchDataAndRender();
+    } catch (error) {
+        console.error("Login handling failed:", error);
+        ui.showError("Nepodařilo se dokončit přihlášení.");
+    } finally {
+        ui.hideLoading();
     }
 }
 
-
 /**
- * Initializes the application after successful login.
+ * Handles the user logout process.
  */
-async function initializeApp() {
-    await reloadDataAndRebuildUI();
+function handleLogout() {
+    // Reset the user role in the state.
+    state.setUserRole('user'); 
+    // Clear any displayed data.
+    ui.clearData();
+    // Update UI elements to reflect the logged-out state.
+    ui.updateUIVisibility('user');
 }
 
 /**
- * Initializes authentication listeners.
+ * Signs in a user with email and password.
+ * @param {string} email - The user's email.
+ * @param {string} password - The user's password.
  */
-export function initAuth() {
-    // Listen for authentication state changes
-    auth.onAuthStateChanged(async (user) => {
-        if (user) {
-            setCurrentUser(user);
-            const userRef = db.ref(`users/${user.uid}`);
-            const snapshot = await userRef.once('value');
-            const userData = snapshot.val();
-            
-            if (userData && userData.role) {
-                setUserRole(userData.role);
-                setUserOdbor(userData.odbor || null);
-                dom.userInfo.textContent = `${user.email} (role: ${userData.role})`;
-                
-                dom.loginScreen.classList.add('hidden');
-                dom.appContainer.classList.remove('hidden');
-                dom.appContainer.classList.add('flex');
-                
-                await initializeApp();
-            } else {
-                dom.loginError.textContent = 'Pro váš účet nejsou nastavena oprávnění.';
-                auth.signOut();
-            }
-        } else {
-            setCurrentUser(null);
-            setUserRole(null);
-            setUserOdbor(null);
-            dom.loginScreen.classList.remove('hidden');
-            dom.appContainer.classList.add('hidden');
-            dom.appContainer.classList.remove('flex');
-        }
-    });
+export async function signIn(email, password) {
+    try {
+        ui.showLoading();
+        await signInWithEmailAndPassword(auth, email, password);
+        ui.closeModal('login-modal');
+    } catch (error) {
+        console.error("Sign in failed:", error);
+        ui.showError(`Přihlášení selhalo: ${error.message}`);
+    } finally {
+        ui.hideLoading();
+    }
+}
 
-    // Handle login form submission
-    dom.loginForm.addEventListener('submit', (e) => {
-        e.preventDefault();
-        dom.loginError.textContent = '';
-        const email = dom.loginForm.email.value;
-        const password = dom.loginForm.password.value;
+/**
+ * Signs out the current user.
+ */
+export async function logOut() {
+    try {
+        await signOut(auth);
+    } catch (error) {
+        console.error("Sign out failed:", error);
+        ui.showError(`Odhlášení selhalo: ${error.message}`);
+    }
+}
 
-        auth.signInWithEmailAndPassword(email, password)
-            .catch((error) => {
-                console.error("Chyba přihlášení:", error);
-                dom.loginError.textContent = 'Nesprávné jméno nebo heslo.';
-            });
-    });
-
-    // Handle logout button click
-    dom.logoutButton.addEventListener('click', () => {
-        auth.signOut();
-    });
+// Function to get the current authenticated user.
+export function getCurrentUser() {
+    return auth.currentUser;
 }
