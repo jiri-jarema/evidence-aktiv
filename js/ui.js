@@ -1,7 +1,8 @@
 import * as dom from './dom.js';
 import * as state from './state.js';
 import * as utils from './utils.js';
-import { loadInitialData, createNewAgenda, updateAgenda, updateSupportAsset, createNewSupportAsset, updateService } from './api.js';
+import { createNewAgenda, updateAgenda, updateSupportAsset, createNewSupportAsset } from './api.js';
+import { reloadDataAndRebuildUI } from './auth.js';
 
 /**
  * Builds the navigation sidebar.
@@ -511,8 +512,10 @@ function renderNewAgendaForm(odborId) {
         }
         const success = await saveNewAgenda(odborId);
         if (success) {
-            await loadInitialData();
-            showCategoryContent(odborId);
+            const reloaded = await reloadDataAndRebuildUI();
+            if (reloaded) {
+                showCategoryContent(odborId);
+            }
         }
     };
 
@@ -637,8 +640,10 @@ function renderEditForm(assetId) {
         e.preventDefault();
         const { changedKeys, success } = await saveAgendaChanges(assetId);
         if (success) {
-            await loadInitialData();
-            showAssetDetails(assetId, utils.findParentId(assetId), changedKeys);
+            const reloaded = await reloadDataAndRebuildUI();
+            if (reloaded) {
+                showAssetDetails(assetId, utils.findParentId(assetId), changedKeys);
+            }
         }
     };
 
@@ -706,8 +711,10 @@ function renderSupportAssetEditForm(assetId) {
         e.preventDefault();
         const success = await saveSupportAssetChanges(assetId);
         if (success) {
-            await loadInitialData();
-            showAssetDetails(assetId, utils.findParentId(assetId));
+            const reloaded = await reloadDataAndRebuildUI();
+            if (reloaded) {
+                showAssetDetails(assetId, utils.findParentId(assetId));
+            }
         }
     };
 
@@ -955,8 +962,10 @@ function renderNewSupportAssetForm(categoryId) {
         }
         const success = await saveNewSupportAsset(categoryId);
         if (success) {
-            await loadInitialData();
-            showCategoryContent(categoryId);
+            const reloaded = await reloadDataAndRebuildUI();
+            if (reloaded) {
+                showCategoryContent(categoryId);
+            }
         }
     };
 
@@ -1103,7 +1112,7 @@ async function saveNewAgenda(odborId) {
         newAgendaData.details[key] = getDetailDataFromForm('new-agenda', key, sampleDetails[key]);
     }
     
-    return await createNewAgenda(odborId, newAgendaId, newAgendaData);
+    return await createNewAgenda(odborId, newAgendaData);
 }
 
 async function saveAgendaChanges(assetId) {
@@ -1159,76 +1168,72 @@ async function saveSupportAssetChanges(assetId) {
     const allAssets = state.getAllAssets();
     const asset = allAssets[assetId];
     const form = document.getElementById(`form-${assetId}`);
-    
-    const updatedDetails = JSON.parse(JSON.stringify(asset.details || {}));
-    let hasChanged = false;
 
-    const newNameInput = form.querySelector(`#input-${assetId}-name`);
-    const newName = newNameInput.value.trim();
-    if (newName !== asset.name) {
-        hasChanged = true;
-    }
+    const newName = form.querySelector(`#input-${assetId}-name`).value.trim();
+    const initialDetails = JSON.parse(JSON.stringify(asset.details || {}));
+    const updatedDetails = {};
 
-    const reciprocalLinks = { toAdd: [], toRemove: [] };
-    const assetPath = utils.getPathForAsset(assetId);
-
-    const formKeys = new Set(Object.keys(updatedDetails));
+    const formKeys = new Set(Object.keys(initialDetails));
     if (asset.type === 'jednotliva-sluzba') {
         formKeys.add('Legislativa');
         formKeys.add('Agendový informační systém');
     }
 
     for (const key of formKeys) {
-        const originalDetail = asset.details ? asset.details[key] : undefined;
-        
-        let detailTemplate = originalDetail || {};
-        if (!originalDetail) {
-            if (key === 'Agendový informační systém') {
-                detailTemplate = { linksTo: [] };
-            } else {
-                detailTemplate = { value: '' };
-            }
-        }
-        
-        const newDetail = getDetailDataFromForm(assetId, key, detailTemplate);
-        
-        if (JSON.stringify(originalDetail) !== JSON.stringify(newDetail)) {
-            hasChanged = true;
-            updatedDetails[key] = newDetail;
+        const template = initialDetails[key] || (key === 'Agendový informační systém' ? { linksTo: [] } : { value: '' });
+        updatedDetails[key] = getDetailDataFromForm(assetId, key, template);
+    }
 
-            if (newDetail.linksTo !== undefined) {
-                const newLinks = newDetail.linksTo;
-                const originalLinks = (originalDetail && Array.isArray(originalDetail.linksTo)) ? originalDetail.linksTo : [];
-                
+    const hasNameChanged = newName !== asset.name;
+    const haveDetailsChanged = JSON.stringify(initialDetails) !== JSON.stringify(updatedDetails);
+
+    if (!hasNameChanged && !haveDetailsChanged) {
+        return true; // No changes, operation is considered successful.
+    }
+
+    const reciprocalLinks = { toAdd: [], toRemove: [] };
+    const assetPath = utils.getPathForAsset(assetId);
+
+    for (const key in updatedDetails) {
+        const newDetail = updatedDetails[key];
+        if (newDetail.linksTo !== undefined) {
+            const originalLinks = (initialDetails[key] && Array.isArray(initialDetails[key].linksTo)) ? initialDetails[key].linksTo : [];
+            const newLinks = newDetail.linksTo;
+
+            if (JSON.stringify(newLinks.sort()) !== JSON.stringify(originalLinks.sort())) {
                 const assetCategoryPath = Object.keys(state.reciprocalMap).find(p => assetPath.startsWith(p));
-                const linkConfig = state.reciprocalMap[assetCategoryPath]?.[key.replace(/ /g, '_')];
+                if (assetCategoryPath) {
+                    const linkConfig = state.reciprocalMap[assetCategoryPath]?.[key.replace(/ /g, '_')];
+                    if (linkConfig) {
+                        const toAdd = newLinks.filter(id => !originalLinks.includes(id));
+                        const toRemove = originalLinks.filter(id => !newLinks.includes(id));
 
-                if (linkConfig) {
-                    const toAdd = newLinks.filter(id => !originalLinks.includes(id));
-                    const toRemove = originalLinks.filter(id => !newLinks.includes(id));
-
-                    toAdd.forEach(targetId => {
-                        reciprocalLinks.toAdd.push({
-                            targetPath: `${linkConfig.targetCategoryPath}/children/${targetId}/details/${linkConfig.reciprocalField}/linksTo`,
-                            sourceId: assetId
+                        toAdd.forEach(targetId => {
+                            reciprocalLinks.toAdd.push({
+                                targetPath: `${linkConfig.targetCategoryPath}/children/${targetId}/details/${linkConfig.reciprocalField}/linksTo`,
+                                sourceId: assetId
+                            });
                         });
-                    });
-                    toRemove.forEach(targetId => {
-                        reciprocalLinks.toRemove.push({
-                            targetPath: `${linkConfig.targetCategoryPath}/children/${targetId}/details/${linkConfig.reciprocalField}/linksTo`,
-                            sourceId: assetId
+                        toRemove.forEach(targetId => {
+                            reciprocalLinks.toRemove.push({
+                                targetPath: `${linkConfig.targetCategoryPath}/children/${targetId}/details/${linkConfig.reciprocalField}/linksTo`,
+                                sourceId: assetId
+                            });
                         });
-                    });
+                    }
                 }
             }
         }
     }
 
-    if (hasChanged) {
-        const payload = { assetPath, newName: (newName !== asset.name ? newName : null), updatedDetails, reciprocalLinks };
-        return await updateSupportAsset(payload);
-    }
-    return true; // No changes
+    const payload = {
+        assetPath,
+        newName: hasNameChanged ? newName : null,
+        updatedDetails,
+        reciprocalLinks
+    };
+    
+    return await updateSupportAsset(payload);
 }
 
 async function saveNewSupportAsset(categoryId) {
@@ -1237,7 +1242,7 @@ async function saveNewSupportAsset(categoryId) {
     const newName = newNameInput.value.trim();
 
     if (!newName) {
-        alert('Název aktiva je povinný.');
+        alert('Název aktiva nesmí být prázdný.');
         return false;
     }
 

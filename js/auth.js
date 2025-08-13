@@ -6,9 +6,11 @@ import { flattenData, buildParentMap } from './utils.js';
 import { buildNav } from './ui.js';
 
 /**
- * Initializes the application after successful data load.
+ * Loads all data from the server, processes it, and rebuilds the entire UI.
+ * This function serves as the central point for refreshing the application state.
+ * @returns {Promise<boolean>} - True if data was loaded and UI was rebuilt successfully, false otherwise.
  */
-async function initializeApp() {
+export async function reloadDataAndRebuildUI() {
     const result = await loadInitialData();
     if (result.success) {
         const data = result.data;
@@ -35,10 +37,20 @@ async function initializeApp() {
         dom.welcomeMessage.querySelector('p').textContent = 'Vyberte položku z menu vlevo pro zobrazení detailů.';
         dom.welcomeMessage.classList.remove('hidden');
         dom.assetDetailContainer.classList.add('hidden');
+        return true;
     } else {
         dom.welcomeMessage.querySelector('h2').textContent = 'Chyba při načítání dat';
         dom.welcomeMessage.querySelector('p').textContent = 'Zkuste prosím obnovit stránku. Chyba: ' + result.error.message;
+        return false;
     }
+}
+
+
+/**
+ * Initializes the application after successful login.
+ */
+async function initializeApp() {
+    await reloadDataAndRebuildUI();
 }
 
 /**
