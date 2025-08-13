@@ -1,7 +1,7 @@
 import * as dom from './dom.js';
 import * as state from './state.js';
 import * as utils from './utils.js';
-import { createNewAgenda, updateAgenda, updateSupportAsset, createNewSupportAsset, getUsers, createUser, updateUser, deleteUser } from './api.js';
+import { createNewAgenda, updateAgenda, updateSupportAsset, createNewSupportAsset } from './api.js';
 import { reloadDataAndRebuildUI } from './auth.js';
 
 /**
@@ -24,6 +24,7 @@ export function buildNav(data, parentElement, level = 0) {
         itemDiv.dataset.id = key;
         itemDiv.className = level === 0 ? 'font-bold text-lg mt-4 cursor-default' : 'p-2 rounded-md sidebar-item';
         
+        // Only items with children should be clickable categories
         if (level > 0 && item.children) {
             itemDiv.onclick = () => showCategoryContent(key);
         } else if (level > 0) {
@@ -58,6 +59,7 @@ export function showCategoryContent(categoryId) {
 
     const parentId = utils.findParentId(categoryId);
 
+    // Add breadcrumbs for the category view
     if (parentId && allAssets[parentId]) {
         const parentAsset = allAssets[parentId];
         const breadcrumbs = document.createElement('div');
@@ -1223,10 +1225,15 @@ async function saveSupportAssetChanges(assetId) {
                         const toRemove = originalLinks.filter(id => !newLinks.includes(id));
 
                         const createReciprocalPath = (targetId) => {
-                            const targetAsset = allAssets[targetId];
-                            if (targetAsset && targetAsset.type === 'jednotliva-sluzba') {
-                                return utils.getPathForAsset(targetId) + `/details/${linkConfig.reciprocalField.replace(/_/g, ' ')}/linksTo`;
+                            // For services, we need to build the full path dynamically
+                            const serviceParentId = utils.findParentId(targetId); 
+                            const serviceGrandparentId = utils.findParentId(serviceParentId);
+                            const serviceGreatGrandparentId = utils.findParentId(serviceGrandparentId);
+                            // Check if the path is for a service to avoid errors with other types
+                            if (serviceGreatGrandparentId === 'primarni' && serviceGrandparentId === 'sluzby') {
+                                return `${serviceGreatGrandparentId}/children/${serviceGrandparentId}/children/${serviceParentId}/children/${targetId}/details/${linkConfig.reciprocalField.replace(/_/g, ' ')}/linksTo`;
                             } else {
+                                // Generic path for other types
                                 return `${linkConfig.targetCategoryPath}/children/${targetId}/details/${linkConfig.reciprocalField}/linksTo`;
                             }
                         };
