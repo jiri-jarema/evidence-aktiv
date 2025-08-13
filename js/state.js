@@ -20,11 +20,11 @@ export const detailOrder = [
 
 export const reciprocalMap = {
     'podpurna/children/databaze': {
-        'Informacni_systemy_vyuzivajici_DB': { // Renamed from Agendy_uzivajici_DB
+        'Informacni_systemy_vyuzivajici_DB': {
             targetCategoryPath: 'primarni/children/informacni-systemy',
             reciprocalField: 'Databaze'
         },
-        'Cil_zalohovani': { // Added
+        'Cil_zalohovani': {
             targetCategoryPath: 'podpurna/children/servery',
             reciprocalField: 'Zalohovane_databaze'
         },
@@ -38,16 +38,16 @@ export const reciprocalMap = {
             targetCategoryPath: 'podpurna/children/databaze',
             reciprocalField: 'Server'
         },
-        'Provozovane_informacni_systemy': { // Renamed from Provozovane_aplikace
+        'Provozovane_informacni_systemy': {
             targetCategoryPath: 'primarni/children/informacni-systemy',
             reciprocalField: 'Aplikační_server'
         },
-        'Zalohovane_databaze': { // Added reciprocal for backup target
+        'Zalohovane_databaze': {
              targetCategoryPath: 'podpurna/children/databaze',
              reciprocalField: 'Cil_zalohovani'
         }
     },
-    'podpurna/children/site': { // Added
+    'podpurna/children/site': {
         'Informacni_systemy': {
             targetCategoryPath: 'primarni/children/informacni-systemy',
             reciprocalField: 'Sítě'
@@ -55,8 +55,8 @@ export const reciprocalMap = {
     },
     'primarni/children/informacni-systemy': {
         'Agendy': { 
-            targetCategoryPath: 'agendy', // Special handling in UI to get all agendas
-            reciprocalField: 'Způsob zpracování' // Complex reciprocal, handled in backend
+            targetCategoryPath: 'agendy',
+            reciprocalField: 'Způsob zpracování'
         },
         'Databaze': {
             targetCategoryPath: 'podpurna/children/databaze',
@@ -67,19 +67,20 @@ export const reciprocalMap = {
             reciprocalField: 'Provozovane_informacni_systemy'
         },
         'Regulovaná_služba': {
-            targetCategoryPath: 'primarni/children/sluzby', // Path to the parent of service categories
-            reciprocalField: 'Agendový_informační_systém' // The field in the service's details
+            targetCategoryPath: 'primarni/children/sluzby',
+            // CORRECTED: Use space to match the actual key in the service's details object.
+            reciprocalField: 'Agendový informační systém' 
         },
         'Sítě': {
             targetCategoryPath: 'podpurna/children/site',
             reciprocalField: 'Informacni_systemy'
         }
     },
-    // Reciprocal mapping for individual services
     'primarni/children/sluzby': {
         'Agendový_informační_systém': {
             targetCategoryPath: 'primarni/children/informacni-systemy',
-            reciprocalField: 'Regulovaná_služba'
+            // CORRECTED: Use space to match the actual key in the IS's details object.
+            reciprocalField: 'Regulovaná služba'
         }
     }
 };
