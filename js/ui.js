@@ -10,8 +10,8 @@ import { loadInitialData, createNewAgenda, updateAgenda, updateSupportAsset, cre
  * @param {number} [level=0] - The current recursion level.
  */
 export function buildNav(data, parentElement, level = 0) {
-    // Allow deeper navigation to show service categories
-    if (level >= 3) return; 
+    // Limit navigation depth in the sidebar to two levels.
+    if (level >= 2) return; 
     const ul = document.createElement('ul');
     if (level > 0) ul.style.paddingLeft = `${(level - 1) * 16}px`;
 
@@ -27,7 +27,6 @@ export function buildNav(data, parentElement, level = 0) {
         if (level > 0 && item.children) {
             itemDiv.onclick = () => showCategoryContent(key);
         } else if (level > 0) {
-            // This case handles potential leaf nodes in the nav, though currently not used
             itemDiv.onclick = () => showAssetDetails(key, utils.findParentId(key));
         }
 
@@ -46,9 +45,7 @@ export function buildNav(data, parentElement, level = 0) {
 export function showCategoryContent(categoryId) {
     const allAssets = state.getAllAssets();
     const asset = allAssets[categoryId];
-    // This check is now crucial. If an asset has no children, it should not be displayed as a category.
     if (!asset || !asset.children) {
-        // Fallback to show details if it's a leaf node clicked as a category by mistake.
         showAssetDetails(categoryId, utils.findParentId(categoryId));
         return;
     }
@@ -78,7 +75,7 @@ export function showCategoryContent(categoryId) {
         addButton.onclick = () => renderNewAgendaForm(categoryId);
         titleContainer.appendChild(addButton);
     } else if ((parentId === 'primarni' || parentId === 'podpurna') && userRole === 'administrator') {
-        if (categoryId !== 'sluzby') { // Don't allow adding to the root "Služby úřadu"
+        if (categoryId !== 'sluzby') {
             const addButton = document.createElement('button');
             addButton.textContent = `Přidat do ${asset.name}`;
             addButton.className = 'px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600';
@@ -89,24 +86,23 @@ export function showCategoryContent(categoryId) {
 
     dom.assetDetailContainer.appendChild(titleContainer);
 
+    // Use a flex column for a list-like appearance.
     const listContainer = document.createElement('div');
-    listContainer.className = 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4';
+    listContainer.className = 'flex flex-col space-y-2'; 
     for (const childId in asset.children) {
         const childAsset = asset.children[childId];
-        const card = document.createElement('div');
-        card.className = 'bg-white p-4 rounded-lg shadow hover:shadow-lg transition-shadow cursor-pointer border border-gray-200';
-        card.innerHTML = `<h3 class="font-semibold text-lg text-blue-600">${childAsset.name}</h3>`;
+        // Use a simpler list item instead of a card for a row-like view.
+        const listItem = document.createElement('div');
+        listItem.className = 'bg-white p-4 rounded-md hover:bg-gray-50 transition-colors cursor-pointer border border-gray-200';
+        listItem.innerHTML = `<h3 class="font-semibold text-blue-600">${childAsset.name}</h3>`;
 
-        // CORRECTED LOGIC: Check if the child item is a category or a final asset.
         if (childAsset.children) {
-            // If it has children, it's a sub-category (e.g., "Bezpečnost")
-            card.onclick = () => showCategoryContent(childId);
+            listItem.onclick = () => showCategoryContent(childId);
         } else {
-            // If it has no children, it's a final asset (e.g., "Obecní policie")
-            card.onclick = () => showAssetDetails(childId, categoryId);
+            listItem.onclick = () => showAssetDetails(childId, categoryId);
         }
         
-        listContainer.appendChild(card);
+        listContainer.appendChild(listItem);
     }
     dom.assetDetailContainer.appendChild(listContainer);
 }
@@ -127,7 +123,6 @@ export function showAssetDetails(assetId, parentId, changedKeys = []) {
     dom.assetDetailContainer.innerHTML = '';
     document.querySelectorAll('.sidebar-item.active').forEach(el => el.classList.remove('active'));
     
-    // Highlight parent category in sidebar
     const parentNavItem = document.querySelector(`.sidebar-item[data-id="${parentId}"]`);
     if(parentNavItem) parentNavItem.classList.add('active');
 
@@ -187,7 +182,6 @@ export function showAssetDetails(assetId, parentId, changedKeys = []) {
         if (isAgenda) {
             editButton.onclick = () => renderEditForm(assetId);
         } else {
-            // Generic edit form now works for services too
             editButton.onclick = () => renderSupportAssetEditForm(assetId);
         }
         titleContainer.appendChild(editButton);
@@ -204,6 +198,35 @@ function renderGenericDetails(asset, assetId, changedKeys = []) {
     const detailsGrid = document.createElement('dl');
     detailsGrid.className = 'details-grid';
     const sharedOptions = state.getSharedOptions();
+
+    // Special handling for individual services to ensure all fields are displayed
+    if (asset.type === 'jednotliva-sluzba') {
+        const serviceFields = ['Legislativa', 'Agendový informační systém'];
+        
+        serviceFields.forEach(key => {
+            const dt = document.createElement('dt');
+            dt.textContent = key.replace(/_/g, ' ');
+            const dd = document.createElement('dd');
+
+            const detail = asset.details[key];
+
+            if (detail) {
+                if (detail.linksTo && detail.linksTo.length > 0) {
+                    dd.appendChild(utils.createLinksFragment(detail.linksTo, showAssetDetails));
+                } else {
+                    dd.textContent = detail.value || '-';
+                }
+            } else {
+                dd.textContent = '-';
+            }
+            detailsGrid.appendChild(dt);
+            detailsGrid.appendChild(dd);
+        });
+
+        dom.assetDetailContainer.appendChild(detailsGrid);
+        return; // Exit the function after handling the service
+    }
+
 
     if (asset.details && Object.keys(asset.details).length > 0) {
         const grandparentId = utils.findParentId(utils.findParentId(assetId));
