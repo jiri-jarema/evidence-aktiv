@@ -523,6 +523,168 @@
              assetDetailContainer.appendChild(detailsGrid);
         }
 
+        function renderEditFormFields(formFragment, assetId, details) {
+            detailOrder.forEach(key => {
+                if (details[key]) {
+                    const detail = details[key];
+                    const label = document.createElement('label');
+                    label.textContent = key;
+                    const sanitizedKey = sanitizeForId(key);
+                    label.htmlFor = `input-${assetId}-${sanitizedKey}`;
+                    
+                    const inputContainer = document.createElement('div');
+
+                    if (key === "Lhůty pro výmaz" && detail.type === 'dictionary') {
+                        const subFormContainer = document.createElement('div');
+                        subFormContainer.className = 'space-y-2';
+                        for (const subKey in detail.value) {
+                            const subWrapper = document.createElement('div');
+                            const subLabel = document.createElement('label');
+                            subLabel.textContent = subKey;
+                            subLabel.className = 'block text-sm font-medium text-gray-500 capitalize';
+                            const subInput = document.createElement('input');
+                            subInput.type = 'text';
+                            subInput.id = `input-${assetId}-${sanitizedKey}-${sanitizeForId(subKey)}`;
+                            subInput.value = detail.value[subKey] || '';
+                            subInput.className = 'form-input mt-1';
+                            subWrapper.appendChild(subLabel);
+                            subWrapper.appendChild(subInput);
+                            subFormContainer.appendChild(subWrapper);
+                        }
+                        inputContainer.appendChild(subFormContainer);
+                    }
+                    else if (key === "Způsob zpracování") {
+                        const methods = detail.value;
+                        methods.forEach((method, methodIndex) => {
+                            const methodWrapper = document.createElement('div');
+                            const methodId = `input-${assetId}-${sanitizedKey}-${methodIndex}`;
+                            
+                            const checkboxWrapper = document.createElement('div');
+                            checkboxWrapper.className = 'flex items-center';
+
+                            const checkbox = document.createElement('input');
+                            checkbox.type = 'checkbox';
+                            checkbox.id = methodId;
+                            checkbox.checked = method.checked;
+                            
+                            const checkboxLabel = document.createElement('label');
+                            checkboxLabel.htmlFor = methodId;
+                            checkboxLabel.textContent = method.label;
+                            checkboxLabel.className = "ml-2";
+
+                            checkboxWrapper.appendChild(checkbox);
+                            checkboxWrapper.appendChild(checkboxLabel);
+                            methodWrapper.appendChild(checkboxWrapper);
+
+                            if (method.label.includes("agendový informační systém")) {
+                                const isSelectorContainer = document.createElement('div');
+                                isSelectorContainer.className = 'ml-8 mt-2 p-2 border border-gray-200 rounded';
+                                
+                                const linkedSystemsContainer = document.createElement('div');
+                                linkedSystemsContainer.id = `linked-systems-${assetId}`;
+                                
+                                const addSystemWrapper = document.createElement('div');
+                                addSystemWrapper.className = 'mt-2 flex items-center space-x-2';
+
+                                const select = document.createElement('select');
+                                select.id = `is-select-${assetId}`;
+                                select.className = 'form-input';
+                                
+                                const addButton = document.createElement('button');
+                                addButton.textContent = 'Přidat';
+                                addButton.className = 'px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600';
+                                addButton.type = 'button';
+                                
+                                addSystemWrapper.appendChild(select);
+                                addSystemWrapper.appendChild(addButton);
+                                
+                                isSelectorContainer.appendChild(linkedSystemsContainer);
+                                isSelectorContainer.appendChild(addSystemWrapper);
+                                methodWrapper.appendChild(isSelectorContainer);
+                            } else if (method.details !== undefined) {
+                                const detailsInput = document.createElement('input');
+                                detailsInput.type = 'text';
+                                detailsInput.id = `${methodId}-details`;
+                                detailsInput.value = method.details;
+                                detailsInput.className = 'form-input mt-1 ml-8';
+                                methodWrapper.appendChild(detailsInput);
+                            }
+                            inputContainer.appendChild(methodWrapper);
+                        });
+                    }
+                    else if ((detail.type === 'checkbox-list' && detail.optionsKey) || detail.type === 'security') {
+                        const optionsKey = detail.optionsKey || (key.includes('elektronické') ? 'securityElectronic' : 'securityAnalog');
+                        const options = sharedOptions[optionsKey];
+                        const checked = detail.checked || detail.value;
+
+                        if (options && Array.isArray(checked)) {
+                            options.forEach((option, index) => {
+                                const optionWrapper = document.createElement('div');
+                                const checkboxId = `input-${assetId}-${sanitizedKey}-${index}`;
+                                const wrapper = document.createElement('div');
+                                wrapper.className = 'flex items-center';
+                                const checkbox = document.createElement('input');
+                                checkbox.type = 'checkbox';
+                                checkbox.id = checkboxId;
+                                checkbox.checked = checked[index];
+                                const checkboxLabel = document.createElement('label');
+                                checkboxLabel.htmlFor = checkboxId;
+                                checkboxLabel.textContent = option;
+                                checkboxLabel.className = "ml-2";
+                                wrapper.appendChild(checkbox);
+                                wrapper.appendChild(checkboxLabel);
+                                optionWrapper.appendChild(wrapper);
+
+                                if (option.toLowerCase().includes('jiné')) {
+                                    const detailsInput = document.createElement('input');
+                                    detailsInput.type = 'text';
+                                    detailsInput.id = `${checkboxId}-details`;
+                                    detailsInput.value = (detail.details && detail.details[index]) || (checkbox.checked ? 'neuvedeno' : '');
+                                    detailsInput.className = `form-input mt-1 ml-8 ${checkbox.checked ? '' : 'hidden'}`;
+                                    checkbox.onchange = () => {
+                                        detailsInput.classList.toggle('hidden', !checkbox.checked);
+                                        if (checkbox.checked && !detailsInput.value) {
+                                            detailsInput.value = 'neuvedeno';
+                                        }
+                                    };
+                                    optionWrapper.appendChild(detailsInput);
+                                }
+                                inputContainer.appendChild(optionWrapper);
+                            });
+                        }
+                    } else if (detail.type === 'lawfulness') {
+                        const select = document.createElement('select');
+                        select.id = `input-${assetId}-${sanitizedKey}`;
+                        select.className = 'form-input';
+                        sharedOptions.lawfulness.forEach(option => {
+                            const optionEl = document.createElement('option');
+                            const value = option.split(')')[0];
+                            optionEl.value = value;
+                            optionEl.textContent = option;
+                            if (detail.value === value) {
+                                optionEl.selected = true;
+                            }
+                            select.appendChild(optionEl);
+                        });
+                        inputContainer.appendChild(select);
+                    } else if (detail.value !== undefined && typeof detail.value === 'string') {
+                         const input = document.createElement('input');
+                         input.type = 'text';
+                         input.id = `input-${assetId}-${sanitizedKey}`;
+                         input.value = detail.value;
+                         input.className = 'form-input';
+                         inputContainer.appendChild(input);
+                    } else {
+                        const text = document.createElement('p');
+                        text.textContent = 'Tuto položku nelze upravovat.';
+                        inputContainer.appendChild(text);
+                    }
+                    formFragment.appendChild(label);
+                    formFragment.appendChild(inputContainer);
+                }
+            });
+        }
+
         function renderNewAgendaForm(odborId) {
             assetDetailContainer.innerHTML = '';
             const odborName = allAssets[odborId].name;
@@ -536,7 +698,6 @@
             form.id = `form-new-agenda-${odborId}`;
             form.className = 'edit-form-grid';
             
-            // Pole pro název nové agendy
             const nameLabel = document.createElement('label');
             nameLabel.textContent = 'Název agendy';
             nameLabel.htmlFor = 'input-new-agenda-name';
@@ -550,13 +711,11 @@
             form.appendChild(nameLabel);
             form.appendChild(nameInputContainer);
 
-            // Vytvoření prázdné struktury pro detaily agendy
             const emptyDetails = {};
             const firstAgendaKey = Object.keys(allAssets[odborId].children)[0];
             const sampleAgenda = allAssets[firstAgendaKey];
             for (const key in sampleAgenda.details) {
                 emptyDetails[key] = JSON.parse(JSON.stringify(sampleAgenda.details[key]));
-                // Vynulování hodnot
                 if (typeof emptyDetails[key].value === 'string') emptyDetails[key].value = '';
                 if (Array.isArray(emptyDetails[key].checked)) emptyDetails[key].checked.fill(false);
                 if (Array.isArray(emptyDetails[key].value)) {
@@ -573,14 +732,12 @@
                 }
             }
             
-            // Vykreslení formulářových polí pro detaily
             const formElements = document.createDocumentFragment();
             renderEditFormFields(formElements, 'new-agenda', emptyDetails);
             form.appendChild(formElements);
             
             assetDetailContainer.appendChild(form);
             
-            // Tlačítka
             const buttonContainer = document.createElement('div');
             buttonContainer.className = 'mt-6 flex justify-end space-x-4 col-span-2';
             const saveButton = document.createElement('button');
@@ -623,7 +780,6 @@
             
             const formElements = document.createDocumentFragment();
             
-            // Pole pro název
             const nameLabel = document.createElement('label');
             nameLabel.textContent = 'Název';
             nameLabel.htmlFor = `input-${assetId}-name`;
@@ -642,10 +798,67 @@
             
             assetDetailContainer.appendChild(form);
             
-            // Dynamické prvky po vložení do DOM
             const zpDetail = asset.details["Způsob zpracování"];
             if (zpDetail) {
-                setupLinkedSystemsSelector(assetId, zpDetail);
+                const aisMethod = zpDetail.value.find(m => m.label.includes("agendový informační systém"));
+                if (aisMethod) {
+                    const linkedSystemsContainer = document.getElementById(`linked-systems-${assetId}`);
+                    const selectEl = document.getElementById(`is-select-${assetId}`);
+                    const addButton = selectEl.nextElementSibling;
+
+                    const addLinkedSystem = (container, systemId, systemName) => {
+                        const systemDiv = document.createElement('div');
+                        systemDiv.className = 'flex items-center justify-between p-1';
+                        systemDiv.dataset.systemId = systemId;
+                        
+                        const nameSpan = document.createElement('span');
+                        nameSpan.textContent = systemName;
+                        
+                        const removeButton = document.createElement('button');
+                        removeButton.textContent = 'Odebrat';
+                        removeButton.className = 'px-2 py-0.5 bg-red-500 text-white text-xs rounded hover:bg-red-600';
+                        removeButton.type = 'button';
+                        removeButton.onclick = () => {
+                            systemDiv.remove();
+                            updateAddSystemDropdown();
+                        };
+                        
+                        systemDiv.appendChild(nameSpan);
+                        systemDiv.appendChild(removeButton);
+                        container.appendChild(systemDiv);
+                    };
+
+                    const updateAddSystemDropdown = () => {
+                        const currentlyLinkedIds = Array.from(linkedSystemsContainer.children).map(div => div.dataset.systemId);
+                        
+                        selectEl.innerHTML = '<option value="">Vyberte systém...</option>';
+                        const allSystems = assetData.primarni.children['informacni-systemy'].children;
+
+                        for (const systemId in allSystems) {
+                            if (!currentlyLinkedIds.includes(systemId)) {
+                                const option = document.createElement('option');
+                                option.value = systemId;
+                                option.textContent = allSystems[systemId].name;
+                                selectEl.appendChild(option);
+                            }
+                        }
+                    };
+
+                    addButton.onclick = () => {
+                        const selectedId = selectEl.value;
+                        if (!selectedId) return;
+                        const selectedAsset = allAssets[selectedId];
+                        addLinkedSystem(linkedSystemsContainer, selectedId, selectedAsset.name);
+                        updateAddSystemDropdown();
+                    };
+                    
+                    (aisMethod.linksTo || []).forEach(systemId => {
+                        if(allAssets[systemId]) {
+                            addLinkedSystem(linkedSystemsContainer, systemId, allAssets[systemId].name);
+                        }
+                    });
+                    updateAddSystemDropdown();
+                }
             }
 
             const buttonContainer = document.createElement('div');
@@ -671,6 +884,7 @@
             buttonContainer.appendChild(saveButton);
             form.appendChild(buttonContainer);
         }
+
         
         function renderSupportAssetEditForm(assetId) {
             const asset = allAssets[assetId];
