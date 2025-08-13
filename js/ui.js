@@ -597,7 +597,6 @@ function renderEditForm(assetId) {
 function renderSupportAssetEditForm(assetId) {
     const allAssets = state.getAllAssets();
     const asset = allAssets[assetId];
-    const assetPath = utils.getPathForAsset(assetId);
     dom.assetDetailContainer.innerHTML = '';
 
     const title = document.createElement('h2');
@@ -608,6 +607,8 @@ function renderSupportAssetEditForm(assetId) {
     const form = document.createElement('form');
     form.id = `form-${assetId}`;
     form.className = 'edit-form-grid';
+
+    const formElements = document.createDocumentFragment();
 
     // Name field
     const nameLabel = document.createElement('label');
@@ -620,99 +621,13 @@ function renderSupportAssetEditForm(assetId) {
     nameInput.value = asset.name;
     nameInput.className = 'form-input';
     nameInputContainer.appendChild(nameInput);
-    form.appendChild(nameLabel);
-    form.appendChild(nameInputContainer);
+    formElements.appendChild(nameLabel);
+    formElements.appendChild(nameInputContainer);
 
-    for (const key in asset.details) {
-        const detail = asset.details[key];
-        const label = document.createElement('label');
-        label.textContent = key.replace(/_/g, ' ');
-        const inputContainer = document.createElement('div');
+    renderEditFormFields(formElements, assetId, asset.details);
+    form.appendChild(formElements);
+    dom.assetDetailContainer.appendChild(form);
 
-        if (detail.linksTo) {
-            const selectedItemsContainer = document.createElement('div');
-            selectedItemsContainer.id = `selected-items-${key}`;
-            selectedItemsContainer.className = 'flex flex-wrap items-center mb-2';
-
-            const currentLinks = Array.isArray(detail.linksTo) ? detail.linksTo : (detail.linksTo ? [detail.linksTo] : []);
-
-            const updateDropdown = (selectEl, currentSelection) => {
-                const assetCategoryPath = Object.keys(state.reciprocalMap).find(p => assetPath.startsWith(p));
-                const linkConfig = state.reciprocalMap[assetCategoryPath]?.[key];
-                if (!linkConfig) return;
-
-                const targetCategory = utils.getObjectByPath(state.getAssetData(), linkConfig.targetCategoryPath);
-                selectEl.innerHTML = '<option value="">Vyberte položku...</option>';
-
-                for (const targetId in targetCategory.children) {
-                    if (!currentSelection.includes(targetId)) {
-                        const option = document.createElement('option');
-                        option.value = targetId;
-                        option.textContent = targetCategory.children[targetId].name;
-                        selectEl.appendChild(option);
-                    }
-                }
-            };
-
-            const addSelectedItem = (id, name) => {
-                const badge = document.createElement('span');
-                badge.className = 'selected-item-badge';
-                badge.dataset.id = id;
-                badge.textContent = name;
-
-                const removeBtn = document.createElement('button');
-                removeBtn.innerHTML = '&times;';
-                removeBtn.type = 'button';
-                removeBtn.onclick = () => {
-                    badge.remove();
-                    const currentSelection = Array.from(selectedItemsContainer.children).map(b => b.dataset.id);
-                    updateDropdown(select, currentSelection);
-                };
-                badge.appendChild(removeBtn);
-                selectedItemsContainer.appendChild(badge);
-            };
-
-            currentLinks.forEach(linkId => {
-                if (allAssets[linkId]) {
-                    addSelectedItem(linkId, allAssets[linkId].name);
-                }
-            });
-
-            const addWrapper = document.createElement('div');
-            addWrapper.className = 'flex items-center space-x-2';
-            const select = document.createElement('select');
-            select.className = 'form-input';
-
-            const addButton = document.createElement('button');
-            addButton.textContent = 'Přidat';
-            addButton.type = 'button';
-            addButton.className = 'px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600';
-            addButton.onclick = () => {
-                const selectedId = select.value;
-                if (!selectedId) return;
-                addSelectedItem(selectedId, allAssets[selectedId].name);
-                const currentSelection = Array.from(selectedItemsContainer.children).map(b => b.dataset.id);
-                updateDropdown(select, currentSelection);
-            };
-
-            updateDropdown(select, currentLinks);
-            addWrapper.appendChild(select);
-            addWrapper.appendChild(addButton);
-            inputContainer.appendChild(selectedItemsContainer);
-            inputContainer.appendChild(addWrapper);
-
-        } else {
-            const input = document.createElement('input');
-            input.type = 'text';
-            input.id = `input-${key}`;
-            input.value = detail.value || '';
-            input.className = 'form-input';
-            inputContainer.appendChild(input);
-        }
-
-        form.appendChild(label);
-        form.appendChild(inputContainer);
-    }
 
     const buttonContainer = document.createElement('div');
     buttonContainer.className = 'mt-6 flex justify-end space-x-4 col-span-2';
@@ -740,7 +655,6 @@ function renderSupportAssetEditForm(assetId) {
     buttonContainer.appendChild(cancelButton);
     buttonContainer.appendChild(saveButton);
     form.appendChild(buttonContainer);
-    dom.assetDetailContainer.appendChild(form);
 }
 
 function renderEditFormFields(formFragment, assetId, details) {
@@ -888,7 +802,11 @@ function renderEditFormFields(formFragment, assetId, details) {
                 });
                 inputContainer.appendChild(select);
             } else if (detail.linksTo) {
-                renderLinkSelector(inputContainer, assetId, key, detail);
+                let categoryIdForLinks = null;
+                if (assetId.startsWith('new-asset-')) {
+                    categoryIdForLinks = assetId.replace('new-asset-', '');
+                }
+                renderLinkSelector(inputContainer, assetId, key, detail, categoryIdForLinks);
             } else if (detail.value !== undefined && typeof detail.value === 'string') {
                 const input = document.createElement('input');
                 input.type = 'text';
@@ -939,7 +857,6 @@ function renderNewSupportAssetForm(categoryId) {
     form.appendChild(nameLabel);
     form.appendChild(nameInputContainer);
 
-    // Create an empty details object based on a sample asset
     const sampleAssetKey = Object.keys(categoryAsset.children)[0];
     const sampleAsset = categoryAsset.children[sampleAssetKey];
     const emptyDetails = {};
@@ -989,25 +906,32 @@ function renderNewSupportAssetForm(categoryId) {
     form.appendChild(buttonContainer);
 }
 
-function renderLinkSelector(container, assetId, key, detail) {
+function renderLinkSelector(container, assetId, key, detail, newAssetCategoryId = null) {
     const allAssets = state.getAllAssets();
-    const assetPath = utils.getPathForAsset(assetId);
+    
+    let assetPath;
+    if (newAssetCategoryId) {
+        const parentId = utils.findParentId(newAssetCategoryId);
+        assetPath = `${parentId}/children/${newAssetCategoryId}`;
+    } else {
+        assetPath = utils.getPathForAsset(assetId);
+    }
 
     const selectedItemsContainer = document.createElement('div');
-    selectedItemsContainer.id = `selected-items-${assetId}-${key}`;
+    selectedItemsContainer.id = `selected-items-${assetId}-${utils.sanitizeForId(key)}`;
     selectedItemsContainer.className = 'flex flex-wrap items-center mb-2';
 
     const currentLinks = Array.isArray(detail.linksTo) ? detail.linksTo : (detail.linksTo ? [detail.linksTo] : []);
 
     const updateDropdown = (selectEl, currentSelection) => {
-        const assetCategoryPath = Object.keys(state.reciprocalMap).find(p => assetPath.startsWith(p) || `new-asset-${p}`.includes(assetId));
+        const assetCategoryPath = Object.keys(state.reciprocalMap).find(p => assetPath.startsWith(p));
         if (!assetCategoryPath) {
-             console.warn(`No reciprocalMap config found for asset path starting with ${assetPath} or assetId ${assetId}`);
+             console.warn(`No reciprocalMap config found for asset path: ${assetPath}`);
              return;
         }
         const linkConfig = state.reciprocalMap[assetCategoryPath]?.[key.replace(/ /g, '_')];
         if (!linkConfig) {
-             console.warn(`No linkConfig found for key ${key} in path ${assetCategoryPath}`);
+             console.warn(`No linkConfig found for key ${key.replace(/ /g, '_')} in path ${assetCategoryPath}`);
              return;
         }
         
@@ -1168,7 +1092,7 @@ async function saveSupportAssetChanges(assetId) {
     for (const key in updatedDetails) {
         const detail = updatedDetails[key];
         if (detail.linksTo) {
-            const selectedItemsContainer = form.querySelector(`#selected-items-${assetId}-${key}`);
+            const selectedItemsContainer = form.querySelector(`#selected-items-${assetId}-${utils.sanitizeForId(key)}`);
             const newLinks = Array.from(selectedItemsContainer.children).map(badge => badge.dataset.id);
             const originalLinks = Array.isArray(detail.linksTo) ? (detail.linksTo.length === 1 && detail.linksTo[0] === "" ? [] : detail.linksTo) : [];
 
@@ -1230,7 +1154,7 @@ async function saveNewSupportAsset(categoryId) {
     const sampleAsset = categoryAsset.children[sampleAssetKey];
 
     const newAssetData = { name: newName, details: {} };
-    const reciprocalLinks = { toAdd: [], toRemove: [] }; // Only adding is relevant here
+    const reciprocalLinks = { toAdd: [], toRemove: [] };
     const newAssetPath = `${utils.getPathForAsset(categoryId)}/children/${newAssetId}`;
 
     for (const key in sampleAsset.details) {
@@ -1238,7 +1162,7 @@ async function saveNewSupportAsset(categoryId) {
         const newDetail = { ...detail };
         
         if (detail.linksTo) {
-            const selectedItemsContainer = form.querySelector(`#selected-items-new-asset-${categoryId}-${key}`);
+            const selectedItemsContainer = form.querySelector(`#selected-items-new-asset-${categoryId}-${utils.sanitizeForId(key)}`);
             const newLinks = Array.from(selectedItemsContainer.children).map(badge => badge.dataset.id);
             newDetail.linksTo = newLinks;
 

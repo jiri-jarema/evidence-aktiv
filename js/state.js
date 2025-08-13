@@ -20,9 +20,17 @@ export const detailOrder = [
 
 export const reciprocalMap = {
     'podpurna/children/databaze': {
-        'Agendy_uzivajici_DB': {
+        'Informacni_systemy_vyuzivajici_DB': { // Renamed from Agendy_uzivajici_DB
             targetCategoryPath: 'primarni/children/informacni-systemy',
-            reciprocalField: 'Databáze'
+            reciprocalField: 'Databaze'
+        },
+        'Cil_zalohovani': { // Added
+            targetCategoryPath: 'podpurna/children/servery',
+            reciprocalField: 'Zalohovane_databaze'
+        },
+        'Server': {
+            targetCategoryPath: 'podpurna/children/servery',
+            reciprocalField: 'Provozovane_databaze'
         }
     },
     'podpurna/children/servery': {
@@ -30,19 +38,33 @@ export const reciprocalMap = {
             targetCategoryPath: 'podpurna/children/databaze',
             reciprocalField: 'Server'
         },
-        'Provozovane_aplikace': {
+        'Provozovane_informacni_systemy': { // Renamed from Provozovane_aplikace
             targetCategoryPath: 'primarni/children/informacni-systemy',
             reciprocalField: 'Aplikační_server'
+        },
+        'Zalohovane_databaze': { // Added reciprocal for backup target
+             targetCategoryPath: 'podpurna/children/databaze',
+             reciprocalField: 'Cil_zalohovani'
+        }
+    },
+    'podpurna/children/site': { // Added
+        'Informacni_systemy': {
+            targetCategoryPath: 'primarni/children/informacni-systemy',
+            reciprocalField: 'Sit'
         }
     },
     'primarni/children/informacni-systemy': {
-        'Databáze': {
+        'Databaze': {
             targetCategoryPath: 'podpurna/children/databaze',
-            reciprocalField: 'Agendy_uzivajici_DB'
+            reciprocalField: 'Informacni_systemy_vyuzivajici_DB' // Renamed
         },
         'Aplikační_server': {
             targetCategoryPath: 'podpurna/children/servery',
-            reciprocalField: 'Provozovane_aplikace'
+            reciprocalField: 'Provozovane_informacni_systemy' // Renamed
+        },
+        'Sit': { // Added reciprocal for network
+            targetCategoryPath: 'podpurna/children/site',
+            reciprocalField: 'Informacni_systemy'
         }
     }
 };
