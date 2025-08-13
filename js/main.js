@@ -1,14 +1,18 @@
+// Import firebase.js jako první, aby se zajistila inicializace Firebase
+// předtím, než ho ostatní moduly začnou používat.
+import './firebase.js';
+
 import * as dom from './dom.js';
 import * as auth from './auth.js';
 import * as api from './api.js';
 import * as ui from './ui.js';
 import * as state from './state.js';
 
-// --- Main Data Fetching and Rendering ---
+// --- Hlavní načítání a vykreslování dat ---
 
 /**
- * Fetches data from the API and renders it in the UI.
- * This function is now exported to be accessible from other modules like auth.js.
+ * Načte data z API a vykreslí je v UI.
+ * Tato funkce je nyní exportována, aby byla přístupná z jiných modulů, jako je auth.js.
  */
 export async function fetchDataAndRender() {
     try {
@@ -17,7 +21,7 @@ export async function fetchDataAndRender() {
         state.setAllData(data);
         ui.renderData(data);
     } catch (error) {
-        console.error("Error fetching or rendering data:", error);
+        console.error("Chyba při načítání nebo vykreslování dat:", error);
         ui.showError("Nepodařilo se načíst data.");
     } finally {
         ui.hideLoading();
@@ -25,18 +29,18 @@ export async function fetchDataAndRender() {
 }
 
 
-// --- Initialization ---
+// --- Inicializace ---
 
 /**
- * Initializes the application.
+ * Inicializuje aplikaci.
  */
 function initializeApp() {
-    // The dom.js module now handles its own event listener setup upon import.
-    // Therefore, the explicit call here is removed to prevent the error.
+    // Modul dom.js si nyní po importu sám nastavuje posluchače událostí.
+    // Proto je explicitní volání zde odstraněno, aby se předešlo chybě.
     auth.initializeAuth();
-    // Initial data fetch is handled by the auth state change listener,
-    // which calls the exported fetchDataAndRender function.
+    // Počáteční načtení dat je řešeno posluchačem změny stavu autentizace,
+    // který volá exportovanou funkci fetchDataAndRender.
 }
 
-// Start the application
+// Spuštění aplikace
 initializeApp();
