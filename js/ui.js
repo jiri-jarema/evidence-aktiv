@@ -1,7 +1,7 @@
 import * as dom from './dom.js';
 import * as state from './state.js';
 import * as utils from './utils.js';
-import { loadInitialData, createNewAgenda, updateAgenda, updateSupportAsset, createNewSupportAsset } from './api.js';
+import { loadInitialData, createNewAgenda, updateAgenda, updateSupportAsset, createNewSupportAsset, updateService } from './api.js';
 
 /**
  * Builds the navigation sidebar.
@@ -158,6 +158,8 @@ export function showAssetDetails(assetId, parentId, changedKeys = []) {
         editButton.className = 'px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300';
         if (isAgenda) {
             editButton.onclick = () => renderEditForm(assetId);
+        } else if (asset.type === 'sluzba-uradu') {
+            editButton.onclick = () => renderServiceEditForm(assetId, parentId);
         } else {
             editButton.onclick = () => renderSupportAssetEditForm(assetId);
         }
