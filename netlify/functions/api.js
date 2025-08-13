@@ -1,10 +1,8 @@
-import { getCurrentUser, setAssetData, setSharedOptions, setAllAssets, setParentMap } from './state.js';
-import { buildNav } from './ui.js';
-import { flattenData, buildParentMap } from './utils.js';
-import * as dom from './dom.js';
+import { getCurrentUser } from './state.js';
 
 /**
- * Fetches the initial data from the server and populates the app.
+ * Fetches the initial data from the server.
+ * @returns {Promise<{success: boolean, data?: object, error?: Error}>} - An object with data or an error.
  */
 export async function loadInitialData() {
      try {
@@ -17,36 +15,10 @@ export async function loadInitialData() {
         if (!data || !data.primarni || !data.podpurna || !data.agendy || !data.options) {
             throw new Error("Načtená data nemají správnou strukturu.");
         }
-
-        const newAssetData = {
-            primarni: data.primarni,
-            podpurna: data.podpurna,
-            agendy: data.agendy
-        };
-        
-        setAssetData(newAssetData);
-        setSharedOptions(data.options);
-        
-        const flatData = flattenData(newAssetData);
-        setAllAssets(flatData);
-
-        const newParentMap = {};
-        buildParentMap(newAssetData, newParentMap);
-        setParentMap(newParentMap);
-        
-        dom.sidebar.innerHTML = ''; 
-        buildNav(newAssetData, dom.sidebar);
-
-        dom.welcomeMessage.querySelector('h2').textContent = 'Vítejte v evidenci aktiv';
-        dom.welcomeMessage.querySelector('p').textContent = 'Vyberte položku z menu vlevo pro zobrazení detailů.';
-        dom.welcomeMessage.classList.remove('hidden');
-        dom.assetDetailContainer.classList.add('hidden');
-
-
+        return { success: true, data };
     } catch (error) {
         console.error('Chyba při načítání dat:', error);
-        dom.welcomeMessage.querySelector('h2').textContent = 'Chyba při načítání dat';
-        dom.welcomeMessage.querySelector('p').textContent = 'Zkuste prosím obnovit stránku. Chyba: ' + error.message;
+        return { success: false, error };
     }
 }
 
