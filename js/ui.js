@@ -684,7 +684,6 @@ function renderSupportAssetEditForm(assetId) {
     formElements.appendChild(nameLabel);
     formElements.appendChild(nameInputContainer);
 
-    // Ensure service edit form has the IS field even if it's empty
     const detailsForForm = JSON.parse(JSON.stringify(asset.details || {}));
     if (asset.type === 'jednotliva-sluzba') {
         if (!detailsForForm['Agendový informační systém']) {
@@ -1160,7 +1159,8 @@ async function saveSupportAssetChanges(assetId) {
     const allAssets = state.getAllAssets();
     const asset = allAssets[assetId];
     const form = document.getElementById(`form-${assetId}`);
-    const updatedDetails = JSON.parse(JSON.stringify(asset.details));
+    
+    const updatedDetails = JSON.parse(JSON.stringify(asset.details || {}));
     let hasChanged = false;
 
     const newNameInput = form.querySelector(`#input-${assetId}-name`);
@@ -1172,17 +1172,37 @@ async function saveSupportAssetChanges(assetId) {
     const reciprocalLinks = { toAdd: [], toRemove: [] };
     const assetPath = utils.getPathForAsset(assetId);
 
-    for (const key in updatedDetails) {
-        const detail = updatedDetails[key];
-        if (detail.linksTo !== undefined) {
-            const selectedItemsContainer = form.querySelector(`#selected-items-${assetId}-${utils.sanitizeForId(key)}`);
-            const newLinks = Array.from(selectedItemsContainer.children).map(badge => badge.dataset.id);
-            const originalLinks = Array.isArray(detail.linksTo) ? (detail.linksTo.length === 1 && detail.linksTo[0] === "" ? [] : detail.linksTo) : [];
+    const formKeys = new Set(Object.keys(updatedDetails));
+    if (asset.type === 'jednotliva-sluzba') {
+        formKeys.add('Legislativa');
+        formKeys.add('Agendový informační systém');
+    }
+
+    for (const key of formKeys) {
+        const originalDetail = asset.details ? asset.details[key] : undefined;
+        
+        let detailTemplate = originalDetail || {};
+        if (!originalDetail) {
+            if (asset.type === 'jednotliva-sluzba' && key === 'Agendový informační systém') {
+                detailTemplate = { linksTo: [] };
+            } else if (key === 'Legislativa') { // General case for simple value fields
+                detailTemplate = { value: '' };
+            }
+        }
+        
+        const newDetail = getDetailDataFromForm(assetId, key, detailTemplate);
+        
+        updatedDetails[key] = newDetail;
+
+        if (JSON.stringify(originalDetail) !== JSON.stringify(newDetail)) {
+            hasChanged = true;
+        }
+
+        if (newDetail.linksTo !== undefined) {
+            const newLinks = newDetail.linksTo;
+            const originalLinks = (originalDetail && Array.isArray(originalDetail.linksTo)) ? originalDetail.linksTo : [];
 
             if (JSON.stringify(newLinks.sort()) !== JSON.stringify(originalLinks.sort())) {
-                hasChanged = true;
-                updatedDetails[key].linksTo = newLinks;
-
                 const assetCategoryPath = Object.keys(state.reciprocalMap).find(p => assetPath.startsWith(p));
                 const linkConfig = state.reciprocalMap[assetCategoryPath]?.[key.replace(/ /g, '_')];
 
@@ -1203,12 +1223,6 @@ async function saveSupportAssetChanges(assetId) {
                         });
                     });
                 }
-            }
-        } else {
-            const input = form.querySelector(`#input-${assetId}-${utils.sanitizeForId(key)}`);
-            if (input && input.value !== detail.value) {
-                hasChanged = true;
-                updatedDetails[key].value = input.value;
             }
         }
     }
@@ -1330,9 +1344,12 @@ function getDetailDataFromForm(formIdPrefix, key, detailTemplate) {
     } else if (newDetail.type === 'lawfulness') {
         const select = form.querySelector(`#input-${formIdPrefix}-${sanitizedKey}`);
         newDetail.value = select ? select.value : '';
-    } else if (typeof newDetail.value === 'string') {
+    } else if (newDetail.linksTo !== undefined) {
+        const linkedContainer = form.querySelector(`#selected-items-${formIdPrefix}-${sanitizedKey}`);
+        newDetail.linksTo = linkedContainer ? Array.from(linkedContainer.children).map(div => div.dataset.id) : [];
+    } else if (typeof newDetail.value === 'string' || newDetail.value === undefined) {
         const input = form.querySelector(`#input-${formIdPrefix}-${sanitizedKey}`);
-        newDetail.value = input ? input.value : '';
+        if(input) newDetail.value = input.value;
     }
     return newDetail;
 }
