@@ -10,7 +10,8 @@ import { loadInitialData, createNewAgenda, updateAgenda, updateSupportAsset, cre
  * @param {number} [level=0] - The current recursion level.
  */
 export function buildNav(data, parentElement, level = 0) {
-    if (level >= 2) return;
+    // Allow deeper navigation to show service categories
+    if (level >= 3) return; 
     const ul = document.createElement('ul');
     if (level > 0) ul.style.paddingLeft = `${(level - 1) * 16}px`;
 
@@ -21,7 +22,15 @@ export function buildNav(data, parentElement, level = 0) {
         itemDiv.textContent = item.name;
         itemDiv.dataset.id = key;
         itemDiv.className = level === 0 ? 'font-bold text-lg mt-4 cursor-default' : 'p-2 rounded-md sidebar-item';
-        if (level > 0) itemDiv.onclick = () => showCategoryContent(key);
+        
+        // Only items with children should be clickable categories
+        if (level > 0 && item.children) {
+            itemDiv.onclick = () => showCategoryContent(key);
+        } else if (level > 0) {
+            // This case handles potential leaf nodes in the nav, though currently not used
+            itemDiv.onclick = () => showAssetDetails(key, utils.findParentId(key));
+        }
+
 
         li.appendChild(itemDiv);
         if (item.children) buildNav(item.children, li, level + 1);
@@ -37,7 +46,12 @@ export function buildNav(data, parentElement, level = 0) {
 export function showCategoryContent(categoryId) {
     const allAssets = state.getAllAssets();
     const asset = allAssets[categoryId];
-    if (!asset || !asset.children) return;
+    // This check is now crucial. If an asset has no children, it should not be displayed as a category.
+    if (!asset || !asset.children) {
+        // Fallback to show details if it's a leaf node clicked as a category by mistake.
+        showAssetDetails(categoryId, utils.findParentId(categoryId));
+        return;
+    }
 
     dom.welcomeMessage.classList.add('hidden');
     dom.assetDetailContainer.classList.remove('hidden');
@@ -64,8 +78,7 @@ export function showCategoryContent(categoryId) {
         addButton.onclick = () => renderNewAgendaForm(categoryId);
         titleContainer.appendChild(addButton);
     } else if ((parentId === 'primarni' || parentId === 'podpurna') && userRole === 'administrator') {
-        // Do not show "Add" button for service categories, as services are managed differently
-        if (parentId !== 'sluzby') {
+        if (categoryId !== 'sluzby') { // Don't allow adding to the root "Služby úřadu"
             const addButton = document.createElement('button');
             addButton.textContent = `Přidat do ${asset.name}`;
             addButton.className = 'px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600';
@@ -83,7 +96,16 @@ export function showCategoryContent(categoryId) {
         const card = document.createElement('div');
         card.className = 'bg-white p-4 rounded-lg shadow hover:shadow-lg transition-shadow cursor-pointer border border-gray-200';
         card.innerHTML = `<h3 class="font-semibold text-lg text-blue-600">${childAsset.name}</h3>`;
-        card.onclick = () => showAssetDetails(childId, categoryId);
+
+        // CORRECTED LOGIC: Check if the child item is a category or a final asset.
+        if (childAsset.children) {
+            // If it has children, it's a sub-category (e.g., "Bezpečnost")
+            card.onclick = () => showCategoryContent(childId);
+        } else {
+            // If it has no children, it's a final asset (e.g., "Obecní policie")
+            card.onclick = () => showAssetDetails(childId, categoryId);
+        }
+        
         listContainer.appendChild(card);
     }
     dom.assetDetailContainer.appendChild(listContainer);
@@ -104,9 +126,11 @@ export function showAssetDetails(assetId, parentId, changedKeys = []) {
     dom.assetDetailContainer.classList.remove('hidden');
     dom.assetDetailContainer.innerHTML = '';
     document.querySelectorAll('.sidebar-item.active').forEach(el => el.classList.remove('active'));
-    if (parentId) {
-        document.querySelector(`.sidebar-item[data-id="${parentId}"]`)?.classList.add('active');
-    }
+    
+    // Highlight parent category in sidebar
+    const parentNavItem = document.querySelector(`.sidebar-item[data-id="${parentId}"]`);
+    if(parentNavItem) parentNavItem.classList.add('active');
+
 
     if (parentId && allAssets[parentId]) {
         const parentAsset = allAssets[parentId];
@@ -162,10 +186,8 @@ export function showAssetDetails(assetId, parentId, changedKeys = []) {
         editButton.className = 'px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300';
         if (isAgenda) {
             editButton.onclick = () => renderEditForm(assetId);
-        } else if (isService) {
-            // This will be handled by the generic renderSupportAssetEditForm
-            editButton.onclick = () => renderSupportAssetEditForm(assetId);
         } else {
+            // Generic edit form now works for services too
             editButton.onclick = () => renderSupportAssetEditForm(assetId);
         }
         titleContainer.appendChild(editButton);
@@ -210,7 +232,6 @@ function renderGenericDetails(asset, assetId, changedKeys = []) {
                 } else if (detail.type === 'security') {
                     renderCheckboxList(sharedOptions.securityElectronic, detail.value, dd, detail.details);
                 } else if (detail.linksTo) {
-                    // With the new structure, this will correctly link to individual services
                     dd.appendChild(utils.createLinksFragment(detail.linksTo, showAssetDetails));
                 } else if (detail.type === 'dictionary' && typeof detail.value === 'object') {
                     const subList = document.createElement('ul');
@@ -774,7 +795,7 @@ function renderEditFormFields(formFragment, assetId, details) {
                     select.appendChild(optionEl);
                 });
                 inputContainer.appendChild(select);
-            } else if (detail.linksTo) {
+            } else if (detail.linksTo !== undefined) {
                 let categoryIdForLinks = null;
                 if (assetId.startsWith('new-asset-')) {
                     categoryIdForLinks = assetId.replace('new-asset-', '');
@@ -911,7 +932,6 @@ function renderLinkSelector(container, assetId, key, detail, newAssetCategoryId 
         const targetCategory = utils.getObjectByPath(state.getAssetData(), linkConfig.targetCategoryPath);
         selectEl.innerHTML = '<option value="">Vyberte položku...</option>';
         
-        // Special handling for Agendas, which are nested two levels deep
         if (linkConfig.targetCategoryPath === 'agendy') {
             const agendyRoot = state.getAssetData().agendy.children;
             for (const odborKey in agendyRoot) {
@@ -1080,9 +1100,9 @@ async function saveSupportAssetChanges(assetId) {
 
     for (const key in updatedDetails) {
         const detail = updatedDetails[key];
-        if (detail.linksTo !== undefined) { // Check for linksTo property
+        if (detail.linksTo !== undefined) {
             const selectedItemsContainer = form.querySelector(`#selected-items-${assetId}-${utils.sanitizeForId(key)}`);
-            const newLinks = selectedItemsContainer ? Array.from(selectedItemsContainer.children).map(badge => badge.dataset.id) : [];
+            const newLinks = Array.from(selectedItemsContainer.children).map(badge => badge.dataset.id);
             const originalLinks = Array.isArray(detail.linksTo) ? (detail.linksTo.length === 1 && detail.linksTo[0] === "" ? [] : detail.linksTo) : [];
 
             if (JSON.stringify(newLinks.sort()) !== JSON.stringify(originalLinks.sort())) {
@@ -1110,7 +1130,7 @@ async function saveSupportAssetChanges(assetId) {
                     });
                 }
             }
-        } else { // Handle simple value fields
+        } else {
             const input = form.querySelector(`#input-${assetId}-${utils.sanitizeForId(key)}`);
             if (input && input.value !== detail.value) {
                 hasChanged = true;
@@ -1120,7 +1140,6 @@ async function saveSupportAssetChanges(assetId) {
     }
 
     if (hasChanged) {
-        // Use the generic updateSupportAsset for services as well, since the structure is now the same
         const payload = { assetPath, newName: (newName !== asset.name ? newName : null), updatedDetails, reciprocalLinks };
         return await updateSupportAsset(payload);
     }
