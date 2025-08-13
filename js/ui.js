@@ -1014,7 +1014,23 @@ function renderLinkSelector(container, assetId, key, detail, newAssetCategoryId 
         const targetCategory = utils.getObjectByPath(state.getAssetData(), linkConfig.targetCategoryPath);
         selectEl.innerHTML = '<option value="">Vyberte položku...</option>';
         
-        if (linkConfig.targetCategoryPath === 'agendy') {
+        if (key === 'Regulovaná služba') {
+            const servicesRoot = targetCategory.children; 
+            for (const categoryKey in servicesRoot) {
+                const serviceCategory = servicesRoot[categoryKey];
+                if (serviceCategory.children) {
+                    for (const serviceId in serviceCategory.children) {
+                         if (!currentSelection.includes(serviceId)) {
+                            const service = serviceCategory.children[serviceId];
+                            const option = document.createElement('option');
+                            option.value = serviceId;
+                            option.textContent = `${serviceCategory.name} - ${service.name}`;
+                            selectEl.appendChild(option);
+                        }
+                    }
+                }
+            }
+        } else if (linkConfig.targetCategoryPath === 'agendy') {
             const agendyRoot = state.getAssetData().agendy.children;
             for (const odborKey in agendyRoot) {
                 const odbor = agendyRoot[odborKey];
@@ -1168,7 +1184,7 @@ async function saveSupportAssetChanges(assetId) {
     const allAssets = state.getAllAssets();
     const asset = allAssets[assetId];
     const form = document.getElementById(`form-${assetId}`);
-
+    
     const newName = form.querySelector(`#input-${assetId}-name`).value.trim();
     const initialDetails = JSON.parse(JSON.stringify(asset.details || {}));
     const updatedDetails = {};
@@ -1208,15 +1224,29 @@ async function saveSupportAssetChanges(assetId) {
                         const toAdd = newLinks.filter(id => !originalLinks.includes(id));
                         const toRemove = originalLinks.filter(id => !newLinks.includes(id));
 
+                        const createReciprocalPath = (targetId) => {
+                            // For services, we need to build the full path dynamically
+                            const serviceParentId = utils.findParentId(targetId); 
+                            const serviceGrandparentId = utils.findParentId(serviceParentId);
+                            const serviceGreatGrandparentId = utils.findParentId(serviceGrandparentId);
+                            // Check if the path is for a service to avoid errors with other types
+                            if (serviceGreatGrandparentId === 'primarni' && serviceGrandparentId === 'sluzby') {
+                                return `${serviceGreatGrandparentId}/children/${serviceGrandparentId}/children/${serviceParentId}/children/${targetId}/details/${linkConfig.reciprocalField.replace(/_/g, ' ')}/linksTo`;
+                            } else {
+                                // Generic path for other types
+                                return `${linkConfig.targetCategoryPath}/children/${targetId}/details/${linkConfig.reciprocalField}/linksTo`;
+                            }
+                        };
+
                         toAdd.forEach(targetId => {
                             reciprocalLinks.toAdd.push({
-                                targetPath: `${linkConfig.targetCategoryPath}/children/${targetId}/details/${linkConfig.reciprocalField}/linksTo`,
+                                targetPath: createReciprocalPath(targetId),
                                 sourceId: assetId
                             });
                         });
                         toRemove.forEach(targetId => {
                             reciprocalLinks.toRemove.push({
-                                targetPath: `${linkConfig.targetCategoryPath}/children/${targetId}/details/${linkConfig.reciprocalField}/linksTo`,
+                                targetPath: createReciprocalPath(targetId),
                                 sourceId: assetId
                             });
                         });
