@@ -1223,12 +1223,10 @@ async function saveSupportAssetChanges(assetId) {
                         const toRemove = originalLinks.filter(id => !newLinks.includes(id));
 
                         const createReciprocalPath = (targetId) => {
-                             // This logic handles the deeply nested structure of services
                             const targetAsset = allAssets[targetId];
                             if (targetAsset && targetAsset.type === 'jednotliva-sluzba') {
                                 return utils.getPathForAsset(targetId) + `/details/${linkConfig.reciprocalField.replace(/_/g, ' ')}/linksTo`;
                             } else {
-                                // Generic path for other types
                                 return `${linkConfig.targetCategoryPath}/children/${targetId}/details/${linkConfig.reciprocalField}/linksTo`;
                             }
                         };
