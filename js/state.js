@@ -50,19 +50,27 @@ export const reciprocalMap = {
     'podpurna/children/site': { // Added
         'Informacni_systemy': {
             targetCategoryPath: 'primarni/children/informacni-systemy',
-            reciprocalField: 'Sit'
+            reciprocalField: 'Sítě'
         }
     },
     'primarni/children/informacni-systemy': {
+        'Agendy': { // Renamed from Osobní_údaje
+            targetCategoryPath: 'agendy', // Special handling in UI to get all agendas
+            reciprocalField: 'Způsob zpracování' // Complex reciprocal, handled in backend
+        },
         'Databaze': {
             targetCategoryPath: 'podpurna/children/databaze',
-            reciprocalField: 'Informacni_systemy_vyuzivajici_DB' // Renamed
+            reciprocalField: 'Informacni_systemy_vyuzivajici_DB'
         },
         'Aplikační_server': {
             targetCategoryPath: 'podpurna/children/servery',
-            reciprocalField: 'Provozovane_informacni_systemy' // Renamed
+            reciprocalField: 'Provozovane_informacni_systemy'
         },
-        'Sit': { // Added reciprocal for network
+        'Regulovaná_služba': {
+            targetCategoryPath: 'primarni/children/sluzby',
+            reciprocalField: 'is' // Complex reciprocal, handled in backend
+        },
+        'Sítě': {
             targetCategoryPath: 'podpurna/children/site',
             reciprocalField: 'Informacni_systemy'
         }

@@ -937,8 +937,24 @@ function renderLinkSelector(container, assetId, key, detail, newAssetCategoryId 
         
         const targetCategory = utils.getObjectByPath(state.getAssetData(), linkConfig.targetCategoryPath);
         selectEl.innerHTML = '<option value="">Vyberte položku...</option>';
-
-        if (targetCategory && targetCategory.children) {
+        
+        // Special handling for Agendas, which are nested two levels deep
+        if (key === 'Agendy') {
+            const agendyRoot = state.getAssetData().agendy.children;
+            for (const odborKey in agendyRoot) {
+                const odbor = agendyRoot[odborKey];
+                if (odbor.children) {
+                    for (const agendaId in odbor.children) {
+                         if (!currentSelection.includes(agendaId)) {
+                            const option = document.createElement('option');
+                            option.value = agendaId;
+                            option.textContent = `${odbor.name} - ${odbor.children[agendaId].name}`;
+                            selectEl.appendChild(option);
+                        }
+                    }
+                }
+            }
+        } else if (targetCategory && targetCategory.children) {
             for (const targetId in targetCategory.children) {
                 if (!currentSelection.includes(targetId)) {
                     const option = document.createElement('option');
