@@ -31,9 +31,10 @@ export async function fetchDataAndRender() {
  * Initializes the application.
  */
 function initializeApp() {
-    dom.setupEventListeners();
+    // The dom.js module now handles its own event listener setup upon import.
+    // Therefore, the explicit call here is removed to prevent the error.
     auth.initializeAuth();
-    // Initial data fetch is now handled by the auth state change listener
+    // Initial data fetch is handled by the auth state change listener,
     // which calls the exported fetchDataAndRender function.
 }
 
