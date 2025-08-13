@@ -14,7 +14,6 @@ if (!admin.apps.length) {
 
 const db = admin.database();
 
-// Pomocná funkce pro ověření uživatele a jeho role
 async function verifyUser(authorization) {
     if (!authorization || !authorization.startsWith('Bearer ')) {
         return { error: { statusCode: 401, body: 'Unauthorized: Missing token' } };
@@ -40,34 +39,30 @@ exports.handler = async function(event, context) {
         return { statusCode: 405, body: 'Method Not Allowed' };
     }
 
-    // Ověření uživatele
     const { user, error } = await verifyUser(event.headers.authorization);
-    if (error) {
-        return error;
-    }
+    if (error) return error;
 
     try {
-        const { agendaPath, updatedAgendaDetails, linksToAdd, linksToRemove, agendaId } = JSON.parse(event.body);
+        const { agendaPath, newName, updatedAgendaDetails, linksToAdd, linksToRemove, agendaId } = JSON.parse(event.body);
         
-        // Získání ID odboru z cesty k agendě
         const odborId = agendaPath.split('/')[2];
         if (!odborId) {
             return { statusCode: 400, body: JSON.stringify({ error: 'Bad Request: Invalid agenda path.' }) };
         }
 
-        // Kontrola oprávnění pro zápis
         const canWrite = user.role === 'administrator' || (user.role === 'garant' && user.odbor === odborId);
-
         if (!canWrite) {
             return { statusCode: 403, body: JSON.stringify({ error: 'Forbidden: Insufficient permissions.' }) };
         }
 
         const updates = {};
         
-        // 1. Připraví aktualizaci pro samotnou agendu
+        // Přidání aktualizace názvu, pokud byl změněn
+        if (newName) {
+            updates[`${agendaPath}/name`] = newName;
+        }
         updates[`${agendaPath}/details`] = updatedAgendaDetails;
 
-        // 2. Připraví přidání zpětných odkazů z informačních systémů
         for (const systemId of linksToAdd) {
             const systemLinksPath = `primarni/children/informacni-systemy/children/${systemId}/details/Osobní údaje/linksTo`;
             const snapshot = await db.ref(systemLinksPath).once('value');
@@ -78,7 +73,6 @@ exports.handler = async function(event, context) {
             updates[systemLinksPath] = links;
         }
 
-        // 3. Připraví odebrání zpětných odkazů z informačních systémů
         for (const systemId of linksToRemove) {
             const systemLinksPath = `primarni/children/informacni-systemy/children/${systemId}/details/Osobní údaje/linksTo`;
             const snapshot = await db.ref(systemLinksPath).once('value');
@@ -87,7 +81,6 @@ exports.handler = async function(event, context) {
             updates[systemLinksPath] = links;
         }
 
-        // 4. Provede všechny změny najednou v jedné operaci
         await db.ref().update(updates);
 
         return {

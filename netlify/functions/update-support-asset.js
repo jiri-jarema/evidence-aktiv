@@ -14,7 +14,6 @@ if (!admin.apps.length) {
 
 const db = admin.database();
 
-// Pomocná funkce pro ověření uživatele a jeho role
 async function verifyUser(authorization) {
     if (!authorization || !authorization.startsWith('Bearer ')) {
         return { error: { statusCode: 401, body: 'Unauthorized: Missing token' } };
@@ -43,22 +42,21 @@ exports.handler = async function(event, context) {
     const { user, error } = await verifyUser(event.headers.authorization);
     if (error) return error;
 
-    // Pouze administrátor může upravovat podpůrná aktiva
     if (user.role !== 'administrator') {
         return { statusCode: 403, body: JSON.stringify({ error: 'Forbidden: Insufficient permissions.' }) };
     }
 
     try {
-        const { assetPath, updatedDetails, reciprocalLinks } = JSON.parse(event.body);
+        const { assetPath, newName, updatedDetails, reciprocalLinks } = JSON.parse(event.body);
         
         const updates = {};
         
-        // 1. Aktualizace detailů samotného aktiva
+        if (newName) {
+            updates[`${assetPath}/name`] = newName;
+        }
         updates[`${assetPath}/details`] = updatedDetails;
 
-        // 2. Zpracování recipročních odkazů
         if (reciprocalLinks) {
-            // Přidání nových odkazů
             for (const link of reciprocalLinks.toAdd) {
                 const { targetPath, sourceId } = link;
                 const snapshot = await db.ref(targetPath).once('value');
@@ -70,7 +68,6 @@ exports.handler = async function(event, context) {
                 updates[targetPath] = links;
             }
 
-            // Odebrání starých odkazů
             for (const link of reciprocalLinks.toRemove) {
                 const { targetPath, sourceId } = link;
                 const snapshot = await db.ref(targetPath).once('value');
@@ -81,7 +78,6 @@ exports.handler = async function(event, context) {
             }
         }
 
-        // 3. Provedení všech změn najednou
         await db.ref().update(updates);
 
         return {
