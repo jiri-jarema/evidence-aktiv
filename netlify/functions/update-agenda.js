@@ -64,7 +64,8 @@ exports.handler = async function(event, context) {
         updates[`${agendaPath}/details`] = updatedAgendaDetails;
 
         for (const systemId of linksToAdd) {
-            const systemLinksPath = `primarni/children/informacni-systemy/children/${systemId}/details/Osobní údaje/linksTo`;
+            // Updated path from 'Osobní údaje' to 'Agendy'
+            const systemLinksPath = `primarni/children/informacni-systemy/children/${systemId}/details/Agendy/linksTo`;
             const snapshot = await db.ref(systemLinksPath).once('value');
             let links = snapshot.val() || [];
             if (!links.includes(agendaId)) {
@@ -74,7 +75,8 @@ exports.handler = async function(event, context) {
         }
 
         for (const systemId of linksToRemove) {
-            const systemLinksPath = `primarni/children/informacni-systemy/children/${systemId}/details/Osobní údaje/linksTo`;
+            // Updated path from 'Osobní údaje' to 'Agendy'
+            const systemLinksPath = `primarni/children/informacni-systemy/children/${systemId}/details/Agendy/linksTo`;
             const snapshot = await db.ref(systemLinksPath).once('value');
             let links = snapshot.val() || [];
             links = links.filter(id => id !== agendaId);

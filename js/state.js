@@ -54,7 +54,7 @@ export const reciprocalMap = {
         }
     },
     'primarni/children/informacni-systemy': {
-        'Agendy': { // Renamed from Osobní_údaje
+        'Agendy': { 
             targetCategoryPath: 'agendy', // Special handling in UI to get all agendas
             reciprocalField: 'Způsob zpracování' // Complex reciprocal, handled in backend
         },
@@ -67,12 +67,19 @@ export const reciprocalMap = {
             reciprocalField: 'Provozovane_informacni_systemy'
         },
         'Regulovaná_služba': {
-            targetCategoryPath: 'primarni/children/sluzby',
-            reciprocalField: 'is' // Complex reciprocal, handled in backend
+            targetCategoryPath: 'primarni/children/sluzby', // Path to the parent of service categories
+            reciprocalField: 'Agendový_informační_systém' // The field in the service's details
         },
         'Sítě': {
             targetCategoryPath: 'podpurna/children/site',
             reciprocalField: 'Informacni_systemy'
+        }
+    },
+    // Reciprocal mapping for individual services
+    'primarni/children/sluzby': {
+        'Agendový_informační_systém': {
+            targetCategoryPath: 'primarni/children/informacni-systemy',
+            reciprocalField: 'Regulovaná_služba'
         }
     }
 };

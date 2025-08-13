@@ -37,7 +37,7 @@ export function buildNav(data, parentElement, level = 0) {
 export function showCategoryContent(categoryId) {
     const allAssets = state.getAllAssets();
     const asset = allAssets[categoryId];
-    if (!asset) return;
+    if (!asset || !asset.children) return;
 
     dom.welcomeMessage.classList.add('hidden');
     dom.assetDetailContainer.classList.remove('hidden');
@@ -63,39 +63,31 @@ export function showCategoryContent(categoryId) {
         addButton.className = 'px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600';
         addButton.onclick = () => renderNewAgendaForm(categoryId);
         titleContainer.appendChild(addButton);
-    } else if ((parentId === 'primarni' || parentId === 'podpurna') && userRole === 'administrator' && asset.type !== 'sluzba-uradu') {
-        const addButton = document.createElement('button');
-        addButton.textContent = `Přidat do ${asset.name}`;
-        addButton.className = 'px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600';
-        addButton.onclick = () => renderNewSupportAssetForm(categoryId);
-        titleContainer.appendChild(addButton);
+    } else if ((parentId === 'primarni' || parentId === 'podpurna') && userRole === 'administrator') {
+        // Do not show "Add" button for service categories, as services are managed differently
+        if (parentId !== 'sluzby') {
+            const addButton = document.createElement('button');
+            addButton.textContent = `Přidat do ${asset.name}`;
+            addButton.className = 'px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600';
+            addButton.onclick = () => renderNewSupportAssetForm(categoryId);
+            titleContainer.appendChild(addButton);
+        }
     }
 
     dom.assetDetailContainer.appendChild(titleContainer);
+
     const listContainer = document.createElement('div');
     listContainer.className = 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4';
-
-    if (asset.type === 'sluzba-uradu' && asset.details) {
-        asset.details.forEach((service, index) => {
-            const card = document.createElement('div');
-            card.className = 'bg-white p-4 rounded-lg shadow hover:shadow-lg transition-shadow cursor-pointer border border-gray-200';
-            card.innerHTML = `<h3 class="font-semibold text-lg text-blue-600">${service.pravomoc}</h3>`;
-            card.onclick = () => showServiceDetails(categoryId, index);
-            listContainer.appendChild(card);
-        });
-    } else if (asset.children) {
-        for (const childId in asset.children) {
-            const childAsset = asset.children[childId];
-            const card = document.createElement('div');
-            card.className = 'bg-white p-4 rounded-lg shadow hover:shadow-lg transition-shadow cursor-pointer border border-gray-200';
-            card.innerHTML = `<h3 class="font-semibold text-lg text-blue-600">${childAsset.name}</h3>`;
-            card.onclick = () => showAssetDetails(childId, categoryId);
-            listContainer.appendChild(card);
-        }
+    for (const childId in asset.children) {
+        const childAsset = asset.children[childId];
+        const card = document.createElement('div');
+        card.className = 'bg-white p-4 rounded-lg shadow hover:shadow-lg transition-shadow cursor-pointer border border-gray-200';
+        card.innerHTML = `<h3 class="font-semibold text-lg text-blue-600">${childAsset.name}</h3>`;
+        card.onclick = () => showAssetDetails(childId, categoryId);
+        listContainer.appendChild(card);
     }
     dom.assetDetailContainer.appendChild(listContainer);
 }
-
 
 /**
  * Displays the details of a specific asset.
@@ -152,23 +144,27 @@ export function showAssetDetails(assetId, parentId, changedKeys = []) {
 
     const grandparentId = utils.findParentId(parentId);
     const isAgenda = grandparentId === 'agendy';
-    const isSupportOrPrimary = grandparentId === 'podpurna' || grandparentId === 'primarni';
+    const isService = asset.type === 'jednotliva-sluzba';
+    const isSupportOrPrimary = !isAgenda && !isService;
     const userRole = state.getUserRole();
     const userOdbor = state.getUserOdbor();
 
     let canEdit = false;
     if (isAgenda && (userRole === 'administrator' || (userRole === 'garant' && userOdbor === parentId))) {
         canEdit = true;
-    } else if (isSupportOrPrimary && userRole === 'administrator') {
+    } else if ((isSupportOrPrimary || isService) && userRole === 'administrator') {
         canEdit = true;
     }
-    
+
     if (canEdit) {
         const editButton = document.createElement('button');
         editButton.textContent = 'Upravit';
         editButton.className = 'px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300';
         if (isAgenda) {
             editButton.onclick = () => renderEditForm(assetId);
+        } else if (isService) {
+            // This will be handled by the generic renderSupportAssetEditForm
+            editButton.onclick = () => renderSupportAssetEditForm(assetId);
         } else {
             editButton.onclick = () => renderSupportAssetEditForm(assetId);
         }
@@ -177,85 +173,6 @@ export function showAssetDetails(assetId, parentId, changedKeys = []) {
     dom.assetDetailContainer.appendChild(titleContainer);
 
     renderGenericDetails(asset, assetId, changedKeys);
-}
-
-/**
- * Displays the details of a specific service.
- * @param {string} serviceParentId - The ID of the parent asset ("sluzby-uradu").
- * @param {number} serviceIndex - The index of the service in the details array.
- */
-function showServiceDetails(serviceParentId, serviceIndex) {
-    const allAssets = state.getAllAssets();
-    const parentAsset = allAssets[serviceParentId];
-    const service = parentAsset.details[serviceIndex];
-    if (!service) return;
-
-    dom.welcomeMessage.classList.add('hidden');
-    dom.assetDetailContainer.classList.remove('hidden');
-    dom.assetDetailContainer.innerHTML = '';
-    document.querySelectorAll('.sidebar-item.active').forEach(el => el.classList.remove('active'));
-    document.querySelector(`.sidebar-item[data-id="${serviceParentId}"]`)?.classList.add('active');
-
-    // Breadcrumbs
-    const breadcrumbs = document.createElement('div');
-    breadcrumbs.className = 'mb-4 text-sm';
-    const parentLink = document.createElement('a');
-    parentLink.className = 'asset-link';
-    parentLink.textContent = parentAsset.name;
-    parentLink.onclick = (e) => { e.stopPropagation(); showCategoryContent(serviceParentId); };
-    const separator = document.createElement('span');
-    separator.className = 'mx-2 text-gray-400';
-    separator.textContent = '/';
-    const currentAssetText = document.createElement('span');
-    currentAssetText.className = 'text-gray-600';
-    currentAssetText.textContent = service.pravomoc;
-    breadcrumbs.appendChild(parentLink);
-    breadcrumbs.appendChild(separator);
-    breadcrumbs.appendChild(currentAssetText);
-    dom.assetDetailContainer.appendChild(breadcrumbs);
-
-    // Title and Edit Button
-    const titleContainer = document.createElement('div');
-    titleContainer.className = 'flex justify-between items-center border-b border-gray-300 mb-6 pb-2';
-    const title = document.createElement('h2');
-    title.textContent = service.pravomoc;
-    title.className = 'text-3xl font-bold';
-    titleContainer.appendChild(title);
-
-    if (state.getUserRole() === 'administrator') {
-        const editButton = document.createElement('button');
-        editButton.textContent = 'Upravit';
-        editButton.className = 'px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300';
-        editButton.onclick = () => renderServiceEditForm(serviceParentId, serviceIndex);
-        titleContainer.appendChild(editButton);
-    }
-    dom.assetDetailContainer.appendChild(titleContainer);
-    
-    // Details Grid
-    const detailsGrid = document.createElement('dl');
-    detailsGrid.className = 'details-grid';
-    
-    const fields = {
-        'Svěřená pravomoc': service.pravomoc,
-        'Legislativa': service.legislativa,
-        'Agendový informační systém': utils.createLinksFragment(service.is, showAssetDetails)
-    };
-
-    for (const key in fields) {
-        const dt = document.createElement('dt');
-        dt.textContent = key;
-        const dd = document.createElement('dd');
-        const value = fields[key];
-
-        if (typeof value === 'string') {
-            dd.textContent = value || '-';
-        } else if (value instanceof Node) {
-            dd.appendChild(value);
-        }
-        detailsGrid.appendChild(dt);
-        detailsGrid.appendChild(dd);
-    }
-    dom.assetDetailContainer.appendChild(detailsGrid);
 }
 
 
@@ -292,30 +209,8 @@ function renderGenericDetails(asset, assetId, changedKeys = []) {
                     }
                 } else if (detail.type === 'security') {
                     renderCheckboxList(sharedOptions.securityElectronic, detail.value, dd, detail.details);
-                } else if (key === 'Regulovaná služba') { // Custom rendering for this specific link
-                    const allAssets = state.getAllAssets();
-                    const sluzbyAsset = allAssets['sluzby-uradu'];
-                    if (sluzbyAsset && sluzbyAsset.details) {
-                        const linkedServicesFragment = document.createDocumentFragment();
-                        sluzbyAsset.details.forEach((service, index) => {
-                            if (Array.isArray(service.is) && service.is.includes(assetId)) {
-                                const linkWrapper = document.createElement('div');
-                                const link = document.createElement('a');
-                                link.textContent = service.pravomoc;
-                                link.className = 'asset-link';
-                                link.onclick = (e) => {
-                                    e.stopPropagation();
-                                    showServiceDetails('sluzby-uradu', index);
-                                };
-                                linkWrapper.appendChild(link);
-                                linkedServicesFragment.appendChild(linkWrapper);
-                            }
-                        });
-                        dd.appendChild(linkedServicesFragment);
-                    } else {
-                        dd.textContent = '-';
-                    }
                 } else if (detail.linksTo) {
+                    // With the new structure, this will correctly link to individual services
                     dd.appendChild(utils.createLinksFragment(detail.linksTo, showAssetDetails));
                 } else if (detail.type === 'dictionary' && typeof detail.value === 'object') {
                     const subList = document.createElement('ul');
@@ -401,88 +296,6 @@ function renderProcessingMethods(methods, container) {
 
 
 // --- Rendering Edit Forms ---
-
-/**
- * Renders the edit form for a specific service.
- * @param {string} serviceParentId - The ID of the parent asset ("sluzby-uradu").
- * @param {number} serviceIndex - The index of the service in the details array.
- */
-function renderServiceEditForm(serviceParentId, serviceIndex) {
-    const allAssets = state.getAllAssets();
-    const parentAsset = allAssets[serviceParentId];
-    const service = parentAsset.details[serviceIndex];
-    
-    dom.assetDetailContainer.innerHTML = '';
-
-    const title = document.createElement('h2');
-    title.textContent = `Úprava služby: ${service.pravomoc}`;
-    title.className = 'text-3xl font-bold mb-6 pb-2 border-b border-gray-300';
-    dom.assetDetailContainer.appendChild(title);
-
-    const form = document.createElement('form');
-    form.id = `form-edit-service-${serviceIndex}`;
-    form.className = 'edit-form-grid';
-
-    // Pravomoc
-    const pravomocLabel = document.createElement('label');
-    pravomocLabel.textContent = 'Svěřená pravomoc';
-    const pravomocInput = document.createElement('input');
-    pravomocInput.type = 'text';
-    pravomocInput.id = 'service-pravomoc-input';
-    pravomocInput.value = service.pravomoc;
-    pravomocInput.className = 'form-input';
-    form.appendChild(pravomocLabel);
-    form.appendChild(pravomocInput);
-
-    // Legislativa
-    const legislativaLabel = document.createElement('label');
-    legislativaLabel.textContent = 'Legislativa';
-    const legislativaInput = document.createElement('input');
-    legislativaInput.type = 'text';
-    legislativaInput.id = 'service-legislativa-input';
-    legislativaInput.value = service.legislativa;
-    legislativaInput.className = 'form-input';
-    form.appendChild(legislativaLabel);
-    form.appendChild(legislativaInput);
-    
-    // Informační systémy
-    const isLabel = document.createElement('label');
-    isLabel.textContent = 'Agendový informační systém';
-    const isContainer = document.createElement('div');
-    renderLinkSelector(isContainer, `service-${serviceIndex}`, 'is', { linksTo: service.is }, 'informacni-systemy');
-    form.appendChild(isLabel);
-    form.appendChild(isContainer);
-
-    // Buttons
-    const buttonContainer = document.createElement('div');
-    buttonContainer.className = 'mt-6 flex justify-end space-x-4 col-span-2';
-    const saveButton = document.createElement('button');
-    saveButton.textContent = 'Uložit';
-    saveButton.className = 'px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700';
-    saveButton.onclick = async (e) => {
-        e.preventDefault();
-        const success = await saveServiceChanges(serviceParentId, serviceIndex);
-        if (success) {
-            await loadInitialData(); 
-            showServiceDetails(serviceParentId, serviceIndex);
-        }
-    };
-
-    const cancelButton = document.createElement('button');
-    cancelButton.textContent = 'Zrušit';
-    cancelButton.className = 'px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300';
-    cancelButton.onclick = (e) => {
-        e.preventDefault();
-        showServiceDetails(serviceParentId, serviceIndex);
-    };
-
-    buttonContainer.appendChild(cancelButton);
-    buttonContainer.appendChild(saveButton);
-    form.appendChild(buttonContainer);
-    
-    dom.assetDetailContainer.appendChild(form);
-}
-
 
 function renderNewAgendaForm(odborId) {
     dom.assetDetailContainer.innerHTML = '';
@@ -1070,13 +883,9 @@ function renderLinkSelector(container, assetId, key, detail, newAssetCategoryId 
     const allAssets = state.getAllAssets();
     
     let assetPath;
-    if (newAssetCategoryId) { // This is for creating new support assets or services
-        if (key === 'is') { // Special case for editing a service's IS links
-             assetPath = 'primarni/children/sluzby';
-        } else {
-            const parentId = utils.findParentId(newAssetCategoryId);
-            assetPath = `${parentId}/children/${newAssetCategoryId}`;
-        }
+    if (newAssetCategoryId) {
+        const parentId = utils.findParentId(newAssetCategoryId);
+        assetPath = `${parentId}/children/${newAssetCategoryId}`;
     } else {
         assetPath = utils.getPathForAsset(assetId);
     }
@@ -1088,32 +897,22 @@ function renderLinkSelector(container, assetId, key, detail, newAssetCategoryId 
     const currentLinks = Array.isArray(detail.linksTo) ? detail.linksTo : (detail.linksTo ? [detail.linksTo] : []);
 
     const updateDropdown = (selectEl, currentSelection) => {
-        const assetCategoryPath = (key === 'is') 
-            ? 'primarni/children/sluzby' // Special case for service editing
-            : Object.keys(state.reciprocalMap).find(p => assetPath.startsWith(p));
-
+        const assetCategoryPath = Object.keys(state.reciprocalMap).find(p => assetPath.startsWith(p));
         if (!assetCategoryPath) {
              console.warn(`No reciprocalMap config found for asset path: ${assetPath}`);
              return;
         }
-        
-        const linkConfigKey = (key === 'is') ? 'Regulovaná_služba' : key.replace(/ /g, '_');
-        
-        // Find the right config: for services, we need to look up the IS config.
-        const linkConfig = (key === 'is')
-            ? { targetCategoryPath: 'primarni/children/informacni-systemy', reciprocalField: 'Regulovaná_služba' }
-            : state.reciprocalMap[assetCategoryPath]?.[linkConfigKey];
-
-
+        const linkConfig = state.reciprocalMap[assetCategoryPath]?.[key.replace(/ /g, '_')];
         if (!linkConfig) {
-             console.warn(`No linkConfig found for key ${linkConfigKey} in path ${assetCategoryPath}`);
+             console.warn(`No linkConfig found for key ${key.replace(/ /g, '_')} in path ${assetCategoryPath}`);
              return;
         }
         
         const targetCategory = utils.getObjectByPath(state.getAssetData(), linkConfig.targetCategoryPath);
         selectEl.innerHTML = '<option value="">Vyberte položku...</option>';
         
-        if (linkConfigKey === 'Agendy') { // Keep special handling for Agendas
+        // Special handling for Agendas, which are nested two levels deep
+        if (linkConfig.targetCategoryPath === 'agendy') {
             const agendyRoot = state.getAssetData().agendy.children;
             for (const odborKey in agendyRoot) {
                 const odbor = agendyRoot[odborKey];
@@ -1190,39 +989,6 @@ function renderLinkSelector(container, assetId, key, detail, newAssetCategoryId 
 
 
 // --- Form Submission Handlers ---
-
-async function saveServiceChanges(serviceParentId, serviceIndex) {
-    const form = document.querySelector(`#form-edit-service-${serviceIndex}`);
-    const allAssets = state.getAllAssets();
-    const parentAsset = allAssets[serviceParentId];
-
-    // Deep copy of the details array to avoid direct mutation
-    const updatedDetails = JSON.parse(JSON.stringify(parentAsset.details));
-    const serviceToUpdate = updatedDetails[serviceIndex];
-    const originalService = parentAsset.details[serviceIndex];
-
-    // Get new values from form
-    serviceToUpdate.pravomoc = form.querySelector('#service-pravomoc-input').value;
-    serviceToUpdate.legislativa = form.querySelector('#service-legislativa-input').value;
-
-    const selectedItemsContainer = form.querySelector(`#selected-items-service-${serviceIndex}-is`);
-    const newLinks = Array.from(selectedItemsContainer.children).map(badge => badge.dataset.id);
-    serviceToUpdate.is = newLinks;
-
-    const originalLinks = originalService.is || [];
-    const linksToAdd = newLinks.filter(id => !originalLinks.includes(id));
-    const linksToRemove = originalLinks.filter(id => !newLinks.includes(id));
-
-    const payload = {
-        serviceId: serviceParentId,
-        updatedDetails,
-        linksToAdd,
-        linksToRemove
-    };
-
-    return await updateService(payload);
-}
-
 
 async function saveNewAgenda(odborId) {
     const form = document.getElementById(`form-new-agenda-${odborId}`);
@@ -1314,9 +1080,9 @@ async function saveSupportAssetChanges(assetId) {
 
     for (const key in updatedDetails) {
         const detail = updatedDetails[key];
-        if (detail.linksTo) {
+        if (detail.linksTo !== undefined) { // Check for linksTo property
             const selectedItemsContainer = form.querySelector(`#selected-items-${assetId}-${utils.sanitizeForId(key)}`);
-            const newLinks = Array.from(selectedItemsContainer.children).map(badge => badge.dataset.id);
+            const newLinks = selectedItemsContainer ? Array.from(selectedItemsContainer.children).map(badge => badge.dataset.id) : [];
             const originalLinks = Array.isArray(detail.linksTo) ? (detail.linksTo.length === 1 && detail.linksTo[0] === "" ? [] : detail.linksTo) : [];
 
             if (JSON.stringify(newLinks.sort()) !== JSON.stringify(originalLinks.sort())) {
@@ -1344,7 +1110,7 @@ async function saveSupportAssetChanges(assetId) {
                     });
                 }
             }
-        } else {
+        } else { // Handle simple value fields
             const input = form.querySelector(`#input-${assetId}-${utils.sanitizeForId(key)}`);
             if (input && input.value !== detail.value) {
                 hasChanged = true;
@@ -1354,6 +1120,7 @@ async function saveSupportAssetChanges(assetId) {
     }
 
     if (hasChanged) {
+        // Use the generic updateSupportAsset for services as well, since the structure is now the same
         const payload = { assetPath, newName: (newName !== asset.name ? newName : null), updatedDetails, reciprocalLinks };
         return await updateSupportAsset(payload);
     }

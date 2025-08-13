@@ -135,6 +135,9 @@ export async function updateService(payload) {
 
     const idToken = await user.getIdToken();
     try {
+        // Note: This function might need to be deprecated or changed
+        // if the data structure for services is completely refactored.
+        // For now, it points to the old backend function.
         const response = await fetch('/.netlify/functions/update-service', {
             method: 'POST',
             headers: { 'Authorization': `Bearer ${idToken}` },
