@@ -370,11 +370,18 @@
             assetDetailContainer.appendChild(container);
         }
 
-        function renderCheckboxList(options, checked, container) {
+        function renderCheckboxList(options, checked, container, details) {
             options.forEach((option, index) => {
                 const isChecked = checked[index];
                 const optionDiv = document.createElement('div');
                 optionDiv.className = 'flex items-center';
+                
+                let detailText = '';
+                if (isChecked && option.toLowerCase().includes('jiné')) {
+                    const detailValue = details && details[index] ? details[index] : '(neuvedeno)';
+                    detailText = `<span class="ml-2 text-gray-600">- ${detailValue}</span>`;
+                }
+
                 optionDiv.innerHTML = `
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2 ${isChecked ? 'text-blue-600' : 'text-gray-400'}" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                         ${isChecked 
@@ -383,6 +390,7 @@
                         }
                     </svg>
                     <span>${option}</span>
+                    ${detailText}
                 `;
                 container.appendChild(optionDiv);
             });
@@ -467,10 +475,10 @@
                             renderProcessingMethods(detail.value, dd);
                         } else if (detail.type === 'checkbox-list' && detail.optionsKey) {
                             if (sharedOptions[detail.optionsKey] && detail.checked) {
-                                renderCheckboxList(sharedOptions[detail.optionsKey], detail.checked, dd);
+                                renderCheckboxList(sharedOptions[detail.optionsKey], detail.checked, dd, detail.details);
                             }
                         } else if (detail.type === 'security') {
-                            renderCheckboxList(sharedOptions.securityElectronic, detail.value, dd);
+                            renderCheckboxList(sharedOptions.securityElectronic, detail.value, dd, detail.details);
                         } else if (detail.linksTo) {
                             dd.appendChild(createLinksFragment(detail.linksTo));
                         } else if (detail.type === 'dictionary' && typeof detail.value === 'object') {
@@ -607,6 +615,7 @@
 
                         if (options && Array.isArray(checked)) {
                             options.forEach((option, index) => {
+                                const optionWrapper = document.createElement('div');
                                 const checkboxId = `input-${assetId}-${sanitizedKey}-${index}`;
                                 const wrapper = document.createElement('div');
                                 wrapper.className = 'flex items-center';
@@ -620,7 +629,23 @@
                                 checkboxLabel.className = "ml-2";
                                 wrapper.appendChild(checkbox);
                                 wrapper.appendChild(checkboxLabel);
-                                inputContainer.appendChild(wrapper);
+                                optionWrapper.appendChild(wrapper);
+
+                                if (option.toLowerCase().includes('jiné')) {
+                                    const detailsInput = document.createElement('input');
+                                    detailsInput.type = 'text';
+                                    detailsInput.id = `${checkboxId}-details`;
+                                    detailsInput.value = (detail.details && detail.details[index]) || (checkbox.checked ? 'neuvedeno' : '');
+                                    detailsInput.className = `form-input mt-1 ml-8 ${checkbox.checked ? '' : 'hidden'}`;
+                                    checkbox.onchange = () => {
+                                        detailsInput.classList.toggle('hidden', !checkbox.checked);
+                                        if (checkbox.checked && !detailsInput.value) {
+                                            detailsInput.value = 'neuvedeno';
+                                        }
+                                    };
+                                    optionWrapper.appendChild(detailsInput);
+                                }
+                                inputContainer.appendChild(optionWrapper);
                             });
                         }
                     } else if (detail.type === 'lawfulness') {
@@ -825,15 +850,27 @@
                     let changed = false;
                     const checkedArray = detail.checked || detail.value;
                     const newChecked = [];
+                    const newDetails = {};
                     const optionsKey = detail.optionsKey || (key.includes('elektronické') ? 'securityElectronic' : 'securityAnalog');
                     
-                    sharedOptions[optionsKey].forEach((_, index) => {
-                        const checkbox = form.querySelector(`#input-${assetId}-${sanitizedKey}-${index}`);
+                    sharedOptions[optionsKey].forEach((option, index) => {
+                        const checkboxId = `input-${assetId}-${sanitizedKey}-${index}`;
+                        const checkbox = form.querySelector(`#${checkboxId}`);
                         if (checkbox) {
                             if (checkedArray[index] !== checkbox.checked) {
                                 changed = true;
                             }
                             newChecked.push(checkbox.checked);
+
+                            if (option.toLowerCase().includes('jiné')) {
+                                const detailsInput = form.querySelector(`#${checkboxId}-details`);
+                                if (checkbox.checked && detailsInput) {
+                                    newDetails[index] = detailsInput.value;
+                                    if ((detail.details && detail.details[index] !== detailsInput.value) || !detail.details) {
+                                        changed = true;
+                                    }
+                                }
+                            }
                         }
                     });
 
@@ -843,6 +880,7 @@
                         } else {
                             updatedDetails[key].value = newChecked;
                         }
+                        updatedDetails[key].details = newDetails;
                         changedKeys.push(key);
                     }
                 } else if (detail.type === 'lawfulness') {
