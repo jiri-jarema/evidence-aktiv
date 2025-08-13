@@ -56,6 +56,36 @@ export function showCategoryContent(categoryId) {
     document.querySelectorAll('.sidebar-item.active').forEach(el => el.classList.remove('active'));
     document.querySelector(`.sidebar-item[data-id="${categoryId}"]`)?.classList.add('active');
 
+    const parentId = utils.findParentId(categoryId);
+
+    // Add breadcrumbs for the category view
+    if (parentId && allAssets[parentId]) {
+        const parentAsset = allAssets[parentId];
+        const breadcrumbs = document.createElement('div');
+        breadcrumbs.className = 'mb-4 text-sm';
+
+        const parentLink = document.createElement('a');
+        parentLink.className = 'asset-link';
+        parentLink.textContent = parentAsset.name;
+        parentLink.onclick = (e) => {
+            e.stopPropagation();
+            showCategoryContent(parentId);
+        };
+        breadcrumbs.appendChild(parentLink);
+
+        const separator = document.createElement('span');
+        separator.className = 'mx-2 text-gray-400';
+        separator.textContent = '/';
+        breadcrumbs.appendChild(separator);
+
+        const currentAssetText = document.createElement('span');
+        currentAssetText.className = 'text-gray-600';
+        currentAssetText.textContent = asset.name;
+        breadcrumbs.appendChild(currentAssetText);
+        
+        dom.assetDetailContainer.appendChild(breadcrumbs);
+    }
+
     const titleContainer = document.createElement('div');
     titleContainer.className = 'flex justify-between items-center border-b border-gray-300 mb-6 pb-2';
 
@@ -64,7 +94,6 @@ export function showCategoryContent(categoryId) {
     title.className = 'text-3xl font-bold';
     titleContainer.appendChild(title);
 
-    const parentId = utils.findParentId(categoryId);
     const userRole = state.getUserRole();
     const userOdbor = state.getUserOdbor();
 
@@ -86,12 +115,10 @@ export function showCategoryContent(categoryId) {
 
     dom.assetDetailContainer.appendChild(titleContainer);
 
-    // Use a flex column for a list-like appearance.
     const listContainer = document.createElement('div');
     listContainer.className = 'flex flex-col space-y-2'; 
     for (const childId in asset.children) {
         const childAsset = asset.children[childId];
-        // Use a simpler list item instead of a card for a row-like view.
         const listItem = document.createElement('div');
         listItem.className = 'bg-white p-4 rounded-md hover:bg-gray-50 transition-colors cursor-pointer border border-gray-200';
         listItem.innerHTML = `<h3 class="font-semibold text-blue-600">${childAsset.name}</h3>`;
@@ -132,6 +159,24 @@ export function showAssetDetails(assetId, parentId, changedKeys = []) {
         const breadcrumbs = document.createElement('div');
         breadcrumbs.className = 'mb-4 text-sm';
 
+        const grandparentId = utils.findParentId(parentId);
+        if (grandparentId && allAssets[grandparentId]) {
+            const grandparentAsset = allAssets[grandparentId];
+            const grandparentLink = document.createElement('a');
+            grandparentLink.className = 'asset-link';
+            grandparentLink.textContent = grandparentAsset.name;
+            grandparentLink.onclick = (e) => {
+                e.stopPropagation();
+                showCategoryContent(grandparentId);
+            };
+            breadcrumbs.appendChild(grandparentLink);
+
+            const separator1 = document.createElement('span');
+            separator1.className = 'mx-2 text-gray-400';
+            separator1.textContent = '/';
+            breadcrumbs.appendChild(separator1);
+        }
+
         const parentLink = document.createElement('a');
         parentLink.className = 'asset-link';
         parentLink.textContent = parentAsset.name;
@@ -140,16 +185,16 @@ export function showAssetDetails(assetId, parentId, changedKeys = []) {
             showCategoryContent(parentId);
         };
 
-        const separator = document.createElement('span');
-        separator.className = 'mx-2 text-gray-400';
-        separator.textContent = '/';
+        const separator2 = document.createElement('span');
+        separator2.className = 'mx-2 text-gray-400';
+        separator2.textContent = '/';
 
         const currentAssetText = document.createElement('span');
         currentAssetText.className = 'text-gray-600';
         currentAssetText.textContent = asset.name;
 
         breadcrumbs.appendChild(parentLink);
-        breadcrumbs.appendChild(separator);
+        breadcrumbs.appendChild(separator2);
         breadcrumbs.appendChild(currentAssetText);
         dom.assetDetailContainer.appendChild(breadcrumbs);
     }
@@ -199,7 +244,6 @@ function renderGenericDetails(asset, assetId, changedKeys = []) {
     detailsGrid.className = 'details-grid';
     const sharedOptions = state.getSharedOptions();
 
-    // Special handling for individual services to ensure all fields are displayed
     if (asset.type === 'jednotliva-sluzba') {
         const serviceFields = ['Legislativa', 'Agendový informační systém'];
         
@@ -224,7 +268,7 @@ function renderGenericDetails(asset, assetId, changedKeys = []) {
         });
 
         dom.assetDetailContainer.appendChild(detailsGrid);
-        return; // Exit the function after handling the service
+        return;
     }
 
 
@@ -627,7 +671,6 @@ function renderSupportAssetEditForm(assetId) {
 
     const formElements = document.createDocumentFragment();
 
-    // Name field
     const nameLabel = document.createElement('label');
     nameLabel.textContent = 'Název';
     nameLabel.htmlFor = `input-${assetId}-name`;
@@ -641,7 +684,15 @@ function renderSupportAssetEditForm(assetId) {
     formElements.appendChild(nameLabel);
     formElements.appendChild(nameInputContainer);
 
-    renderEditFormFields(formElements, assetId, asset.details);
+    // Ensure service edit form has the IS field even if it's empty
+    const detailsForForm = JSON.parse(JSON.stringify(asset.details || {}));
+    if (asset.type === 'jednotliva-sluzba') {
+        if (!detailsForForm['Agendový informační systém']) {
+            detailsForForm['Agendový informační systém'] = { linksTo: [] };
+        }
+    }
+
+    renderEditFormFields(formElements, assetId, detailsForForm);
     form.appendChild(formElements);
     dom.assetDetailContainer.appendChild(form);
 
