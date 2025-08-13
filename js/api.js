@@ -78,6 +78,31 @@ export async function createNewAgenda(odborId, newAgendaId, newAgendaData) {
 }
 
 /**
+ * Creates a new support/primary asset on the server.
+ * @param {object} payload - The data payload for the creation.
+ * @returns {Promise<boolean>} - True if successful, false otherwise.
+ */
+export async function createNewSupportAsset(payload) {
+    const user = getCurrentUser();
+    if (!user) return false;
+
+    const idToken = await user.getIdToken();
+    try {
+        const response = await fetch('/.netlify/functions/create-support-asset', {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${idToken}` },
+            body: JSON.stringify(payload)
+        });
+        if (!response.ok) throw new Error(await response.text());
+        return true;
+    } catch (error) {
+        console.error('Chyba při vytváření nového aktiva:', error);
+        alert('Nepodařilo se vytvořit nové aktivum.');
+        return false;
+    }
+}
+
+/**
  * Updates an existing agenda item on the server.
  * @param {object} payload - The data payload for the update.
  * @returns {Promise<boolean>} - True if successful, false otherwise.

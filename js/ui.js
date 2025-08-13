@@ -1,7 +1,7 @@
 import * as dom from './dom.js';
 import * as state from './state.js';
 import * as utils from './utils.js';
-import { loadInitialData, createNewAgenda, updateAgenda, updateSupportAsset } from './api.js';
+import { loadInitialData, createNewAgenda, updateAgenda, updateSupportAsset, createNewSupportAsset } from './api.js';
 
 /**
  * Builds the navigation sidebar.
@@ -56,13 +56,21 @@ export function showCategoryContent(categoryId) {
     const parentId = utils.findParentId(categoryId);
     const userRole = state.getUserRole();
     const userOdbor = state.getUserOdbor();
+
     if (parentId === 'agendy' && (userRole === 'administrator' || (userRole === 'garant' && userOdbor === categoryId))) {
         const addButton = document.createElement('button');
         addButton.textContent = 'Přidat novou agendu';
         addButton.className = 'px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600';
         addButton.onclick = () => renderNewAgendaForm(categoryId);
         titleContainer.appendChild(addButton);
+    } else if ((parentId === 'primarni' || parentId === 'podpurna') && userRole === 'administrator') {
+        const addButton = document.createElement('button');
+        addButton.textContent = `Přidat do ${asset.name}`;
+        addButton.className = 'px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600';
+        addButton.onclick = () => renderNewSupportAssetForm(categoryId);
+        titleContainer.appendChild(addButton);
     }
+
     dom.assetDetailContainer.appendChild(titleContainer);
 
     const listContainer = document.createElement('div');
@@ -370,8 +378,6 @@ function renderNewAgendaForm(odborId) {
 
     dom.assetDetailContainer.appendChild(form);
     
-    // --- FIX STARTS HERE ---
-    // This logic populates the information system dropdown after the form is rendered.
     const assetData = state.getAssetData();
     const zpDetail = emptyDetails["Způsob zpracování"];
     if (zpDetail) {
@@ -430,8 +436,6 @@ function renderNewAgendaForm(odborId) {
             updateAddSystemDropdown();
         }
     }
-    // --- FIX ENDS HERE ---
-
 
     const buttonContainer = document.createElement('div');
     buttonContainer.className = 'mt-6 flex justify-end space-x-4 col-span-2';
@@ -740,7 +744,9 @@ function renderSupportAssetEditForm(assetId) {
 }
 
 function renderEditFormFields(formFragment, assetId, details) {
-    state.detailOrder.forEach(key => {
+    const detailKeys = details === state.detailOrder ? state.detailOrder : Object.keys(details);
+
+    detailKeys.forEach(key => {
         if (details[key]) {
             const detail = details[key];
             const label = document.createElement('label');
@@ -881,6 +887,8 @@ function renderEditFormFields(formFragment, assetId, details) {
                     select.appendChild(optionEl);
                 });
                 inputContainer.appendChild(select);
+            } else if (detail.linksTo) {
+                renderLinkSelector(inputContainer, assetId, key, detail);
             } else if (detail.value !== undefined && typeof detail.value === 'string') {
                 const input = document.createElement('input');
                 input.type = 'text';
@@ -897,6 +905,173 @@ function renderEditFormFields(formFragment, assetId, details) {
             formFragment.appendChild(inputContainer);
         }
     });
+}
+
+function renderNewSupportAssetForm(categoryId) {
+    const allAssets = state.getAllAssets();
+    const categoryAsset = allAssets[categoryId];
+    dom.assetDetailContainer.innerHTML = '';
+
+    if (!categoryAsset.children || Object.keys(categoryAsset.children).length === 0) {
+        dom.assetDetailContainer.innerHTML = `<p class="text-red-500">Nelze přidat aktivum: kategorie "${categoryAsset.name}" neobsahuje žádná vzorová aktiva pro vytvoření formuláře.</p>`;
+        return;
+    }
+
+    const title = document.createElement('h2');
+    title.textContent = `Nové aktivum v kategorii: ${categoryAsset.name}`;
+    title.className = 'text-3xl font-bold mb-6 pb-2 border-b border-gray-300';
+    dom.assetDetailContainer.appendChild(title);
+
+    const form = document.createElement('form');
+    form.id = `form-new-asset-${categoryId}`;
+    form.className = 'edit-form-grid';
+
+    const nameLabel = document.createElement('label');
+    nameLabel.textContent = 'Název aktiva';
+    nameLabel.htmlFor = 'input-new-asset-name';
+    const nameInputContainer = document.createElement('div');
+    const nameInput = document.createElement('input');
+    nameInput.type = 'text';
+    nameInput.id = 'input-new-asset-name';
+    nameInput.className = 'form-input';
+    nameInput.required = true;
+    nameInputContainer.appendChild(nameInput);
+    form.appendChild(nameLabel);
+    form.appendChild(nameInputContainer);
+
+    // Create an empty details object based on a sample asset
+    const sampleAssetKey = Object.keys(categoryAsset.children)[0];
+    const sampleAsset = categoryAsset.children[sampleAssetKey];
+    const emptyDetails = {};
+    for (const key in sampleAsset.details) {
+        emptyDetails[key] = JSON.parse(JSON.stringify(sampleAsset.details[key]));
+        if (typeof emptyDetails[key].value === 'string') {
+            emptyDetails[key].value = '';
+        }
+        if (Array.isArray(emptyDetails[key].linksTo)) {
+            emptyDetails[key].linksTo = [];
+        }
+    }
+
+    const formElements = document.createDocumentFragment();
+    renderEditFormFields(formElements, `new-asset-${categoryId}`, emptyDetails);
+    form.appendChild(formElements);
+    dom.assetDetailContainer.appendChild(form);
+
+    const buttonContainer = document.createElement('div');
+    buttonContainer.className = 'mt-6 flex justify-end space-x-4 col-span-2';
+    const saveButton = document.createElement('button');
+    saveButton.textContent = 'Uložit nové aktivum';
+    saveButton.className = 'px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700';
+    saveButton.onclick = async (e) => {
+        e.preventDefault();
+        if (nameInput.value.trim() === '') {
+            alert('Název aktiva nesmí být prázdný.');
+            return;
+        }
+        const success = await saveNewSupportAsset(categoryId);
+        if (success) {
+            await loadInitialData();
+            showCategoryContent(categoryId);
+        }
+    };
+
+    const cancelButton = document.createElement('button');
+    cancelButton.textContent = 'Zrušit';
+    cancelButton.className = 'px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300';
+    cancelButton.onclick = (e) => {
+        e.preventDefault();
+        showCategoryContent(categoryId);
+    };
+
+    buttonContainer.appendChild(cancelButton);
+    buttonContainer.appendChild(saveButton);
+    form.appendChild(buttonContainer);
+}
+
+function renderLinkSelector(container, assetId, key, detail) {
+    const allAssets = state.getAllAssets();
+    const assetPath = utils.getPathForAsset(assetId);
+
+    const selectedItemsContainer = document.createElement('div');
+    selectedItemsContainer.id = `selected-items-${assetId}-${key}`;
+    selectedItemsContainer.className = 'flex flex-wrap items-center mb-2';
+
+    const currentLinks = Array.isArray(detail.linksTo) ? detail.linksTo : (detail.linksTo ? [detail.linksTo] : []);
+
+    const updateDropdown = (selectEl, currentSelection) => {
+        const assetCategoryPath = Object.keys(state.reciprocalMap).find(p => assetPath.startsWith(p) || `new-asset-${p}`.includes(assetId));
+        if (!assetCategoryPath) {
+             console.warn(`No reciprocalMap config found for asset path starting with ${assetPath} or assetId ${assetId}`);
+             return;
+        }
+        const linkConfig = state.reciprocalMap[assetCategoryPath]?.[key.replace(/ /g, '_')];
+        if (!linkConfig) {
+             console.warn(`No linkConfig found for key ${key} in path ${assetCategoryPath}`);
+             return;
+        }
+        
+        const targetCategory = utils.getObjectByPath(state.getAssetData(), linkConfig.targetCategoryPath);
+        selectEl.innerHTML = '<option value="">Vyberte položku...</option>';
+
+        if (targetCategory && targetCategory.children) {
+            for (const targetId in targetCategory.children) {
+                if (!currentSelection.includes(targetId)) {
+                    const option = document.createElement('option');
+                    option.value = targetId;
+                    option.textContent = targetCategory.children[targetId].name;
+                    selectEl.appendChild(option);
+                }
+            }
+        }
+    };
+    
+    const addSelectedItem = (id, name) => {
+        const badge = document.createElement('span');
+        badge.className = 'selected-item-badge';
+        badge.dataset.id = id;
+        badge.textContent = name;
+        
+        const removeBtn = document.createElement('button');
+        removeBtn.innerHTML = '&times;';
+        removeBtn.type = 'button';
+        removeBtn.onclick = () => {
+            badge.remove();
+            const currentSelection = Array.from(selectedItemsContainer.children).map(b => b.dataset.id);
+            updateDropdown(select, currentSelection);
+        };
+        badge.appendChild(removeBtn);
+        selectedItemsContainer.appendChild(badge);
+    };
+    
+    currentLinks.forEach(linkId => {
+        if (allAssets[linkId]) {
+            addSelectedItem(linkId, allAssets[linkId].name);
+        }
+    });
+
+    const addWrapper = document.createElement('div');
+    addWrapper.className = 'flex items-center space-x-2';
+    const select = document.createElement('select');
+    select.className = 'form-input';
+    
+    const addButton = document.createElement('button');
+    addButton.textContent = 'Přidat';
+    addButton.type = 'button';
+    addButton.className = 'px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600';
+    addButton.onclick = () => {
+        const selectedId = select.value;
+        if (!selectedId) return;
+        addSelectedItem(selectedId, allAssets[selectedId].name);
+        const currentSelection = Array.from(selectedItemsContainer.children).map(b => b.dataset.id);
+        updateDropdown(select, currentSelection);
+    };
+
+    updateDropdown(select, currentLinks);
+    addWrapper.appendChild(select);
+    addWrapper.appendChild(addButton);
+    container.appendChild(selectedItemsContainer);
+    container.appendChild(addWrapper);
 }
 
 
@@ -993,7 +1168,7 @@ async function saveSupportAssetChanges(assetId) {
     for (const key in updatedDetails) {
         const detail = updatedDetails[key];
         if (detail.linksTo) {
-            const selectedItemsContainer = form.querySelector(`#selected-items-${key}`);
+            const selectedItemsContainer = form.querySelector(`#selected-items-${assetId}-${key}`);
             const newLinks = Array.from(selectedItemsContainer.children).map(badge => badge.dataset.id);
             const originalLinks = Array.isArray(detail.linksTo) ? (detail.linksTo.length === 1 && detail.linksTo[0] === "" ? [] : detail.linksTo) : [];
 
@@ -1023,7 +1198,7 @@ async function saveSupportAssetChanges(assetId) {
                 }
             }
         } else {
-            const input = form.querySelector(`#input-${key}`);
+            const input = form.querySelector(`#input-${assetId}-${utils.sanitizeForId(key)}`);
             if (input && input.value !== detail.value) {
                 hasChanged = true;
                 updatedDetails[key].value = input.value;
@@ -1036,6 +1211,57 @@ async function saveSupportAssetChanges(assetId) {
         return await updateSupportAsset(payload);
     }
     return true; // No changes
+}
+
+async function saveNewSupportAsset(categoryId) {
+    const form = document.getElementById(`form-new-asset-${categoryId}`);
+    const newNameInput = form.querySelector('#input-new-asset-name');
+    const newName = newNameInput.value.trim();
+
+    if (!newName) {
+        alert('Název aktiva je povinný.');
+        return false;
+    }
+
+    const newAssetId = `${categoryId}-${utils.sanitizeForId(newName.toLowerCase())}-${Date.now()}`;
+    const allAssets = state.getAllAssets();
+    const categoryAsset = allAssets[categoryId];
+    const sampleAssetKey = Object.keys(categoryAsset.children)[0];
+    const sampleAsset = categoryAsset.children[sampleAssetKey];
+
+    const newAssetData = { name: newName, details: {} };
+    const reciprocalLinks = { toAdd: [], toRemove: [] }; // Only adding is relevant here
+    const newAssetPath = `${utils.getPathForAsset(categoryId)}/children/${newAssetId}`;
+
+    for (const key in sampleAsset.details) {
+        const detail = sampleAsset.details[key];
+        const newDetail = { ...detail };
+        
+        if (detail.linksTo) {
+            const selectedItemsContainer = form.querySelector(`#selected-items-new-asset-${categoryId}-${key}`);
+            const newLinks = Array.from(selectedItemsContainer.children).map(badge => badge.dataset.id);
+            newDetail.linksTo = newLinks;
+
+            const assetCategoryPath = Object.keys(state.reciprocalMap).find(p => newAssetPath.includes(p));
+            const linkConfig = state.reciprocalMap[assetCategoryPath]?.[key.replace(/ /g, '_')];
+            
+            if (linkConfig) {
+                newLinks.forEach(targetId => {
+                    reciprocalLinks.toAdd.push({
+                        targetPath: `${linkConfig.targetCategoryPath}/children/${targetId}/details/${linkConfig.reciprocalField}/linksTo`,
+                        sourceId: newAssetId
+                    });
+                });
+            }
+        } else {
+            const input = form.querySelector(`#input-new-asset-${categoryId}-${utils.sanitizeForId(key)}`);
+            newDetail.value = input ? input.value : '';
+        }
+        newAssetData.details[key] = newDetail;
+    }
+    
+    const payload = { assetPath: newAssetPath, newAssetData, reciprocalLinks };
+    return await createNewSupportAsset(payload);
 }
 
 
