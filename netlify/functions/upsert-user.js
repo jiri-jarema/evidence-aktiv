@@ -28,6 +28,7 @@ exports.handler = async (event) => {
     if (!targetUid) return { statusCode: 400, body: 'Missing uid or email' };
     const update = {};
     if (payload.role) update.role = payload.role;
+    if (payload.email) update.email = payload.email;
     if (payload.odbor !== undefined) update.odbor = payload.odbor;
     await admin.database().ref(`/users/${targetUid}`).update(update);
     return { statusCode: 200, body: JSON.stringify({ success: true, uid: targetUid }) };
