@@ -1407,66 +1407,132 @@ function getDetailDataFromForm(formIdPrefix, key, detailTemplate) {
     return newDetail;
 }
 
+// Nahraďte tímto celý obsah původní funkce renderUsersAdminPage()
 async function renderUsersAdminPage() {
   const container = dom.assetDetailContainer;
-  container.innerHTML = '<h2 class="text-3xl font-bold mb-4">Správa uživatelů</h2>';
+  container.innerHTML = '';
 
+  const title = document.createElement('h2');
+  title.textContent = 'Správa uživatelů';
+  title.className = 'text-3xl font-bold mb-4';
+  container.appendChild(title);
+
+  // Panel akcí (přidání uživatele)
+  const actions = document.createElement('div');
+  actions.className = 'mb-4';
+  const addBtn = document.createElement('button');
+  addBtn.textContent = 'Přidat uživatele';
+  addBtn.className = 'px-3 py-2 rounded bg-green-600 text-white hover:bg-green-700';
+  addBtn.onclick = async () => {
+    const email = prompt('E-mail (nebo ponechte prázdné a zadejte UID v dalším kroku):', '');
+    const uid = email ? '' : (prompt('UID:', '') || '').trim();
+    const role = (prompt('Role (administrator/garant/zamestnanec/user):', 'user') || '').trim();
+    const odbor = (prompt('Odbor (volitelné):', '') || '').trim();
+    if (!email && !uid) return alert('Zadejte alespoň e-mail nebo UID.');
+    try {
+      await upsertUser({ uid: uid || undefined, email: email || undefined, role, odbor: odbor || undefined });
+      await refresh();
+    } catch (e) {
+      alert(e.message);
+    }
+  };
+  actions.appendChild(addBtn);
+  container.appendChild(actions);
+
+  // Tabulka
   const table = document.createElement('table');
   table.className = 'w-full border border-gray-200 rounded overflow-hidden';
-  table.innerHTML = `
-    <thead class="bg-gray-50">
-      <tr>
-        <th class="text-left px-3 py-2">UID</th>
-        <th class="text-left px-3 py-2">Email</th>
-        <th class="text-left px-3 py-2">Role</th>
-        <th class="text-left px-3 py-2">Odbor</th>
-        <th class="text-left px-3 py-2">Akce</th>
-      </tr>
-    </thead>
-    <tbody></tbody>
-  `;
-  const tbody = table.querySelector('tbody');
+  const thead = document.createElement('thead');
+  thead.className = 'bg-gray-50';
+  const headRow = document.createElement('tr');
+  ['UID', 'Email', 'Role', 'Odbor', 'Akce'].forEach(h => {
+    const th = document.createElement('th');
+    th.className = 'text-left px-3 py-2';
+    th.textContent = h;
+    headRow.appendChild(th);
+  });
+  thead.appendChild(headRow);
+  table.appendChild(thead);
+
+  const tbody = document.createElement('tbody');
+  table.appendChild(tbody);
   container.appendChild(table);
 
-  try {
-    const users = await fetchUsers();
+  async function refresh() {
     tbody.innerHTML = '';
-    Object.entries(users).forEach(([uid, info]) => {
-      const tr = document.createElement('tr');
-      tr.className = 'border-t';
-      tr.innerHTML = `
-        <td class="px-3 py-2 font-mono text-sm">${uid}</td>
-        <td class="px-3 py-2">${info.email || ''}</td>
-        <td class="px-3 py-2">${info.role || ''}</td>
-        <td class="px-3 py-2">${info.odbor || ''}</td>
-        <td class="px-3 py-2 space-x-2">
-          <button class="edit px-2 py-1 rounded bg-blue-600 text-white hover:bg-blue-700">Upravit</button>
-          <button class="delete px-2 py-1 rounded bg-red-600 text-white hover:bg-red-700">Smazat</button>
-        </td>
-      `;
+    let rowLoading = document.createElement('tr');
+    let tdLoading = document.createElement('td');
+    tdLoading.colSpan = 5; tdLoading.className = 'px-3 py-2';
+    tdLoading.textContent = 'Načítám…';
+    rowLoading.appendChild(tdLoading);
+    tbody.appendChild(rowLoading);
 
-      tr.querySelector('button.edit').onclick = async () => {
-        const newEmail = prompt('Nový email:', info.email || '');
-        const newRole = prompt('Nová role:', info.role || '');
-        const newOdbor = prompt('Nový odbor:', info.odbor || '');
-        if (newEmail !== null && newRole !== null) {
-          await upsertUser({ uid, email: newEmail, role: newRole, odbor: newOdbor });
-          renderUsersAdminPage();
-        }
-      };
+    try {
+      const users = await fetchUsers();
+      tbody.innerHTML = '';
+      const entries = Object.entries(users);
+      if (!entries.length) {
+        const trEmpty = document.createElement('tr');
+        const tdEmpty = document.createElement('td');
+        tdEmpty.colSpan = 5; tdEmpty.className = 'px-3 py-2';
+        tdEmpty.textContent = 'Žádní uživatelé.';
+        trEmpty.appendChild(tdEmpty);
+        tbody.appendChild(trEmpty);
+        return;
+      }
 
-      tr.querySelector('button.delete').onclick = async () => {
-        if (confirm('Smazat uživatele?')) {
-          await deleteUserByUid(uid);
-          renderUsersAdminPage();
-        }
-      };
+      entries.forEach(([uid, info]) => {
+        const tr = document.createElement('tr');
+        tr.className = 'border-t';
 
-      tbody.appendChild(tr);
-    });
-  } catch (e) {
-    tbody.innerHTML = `<tr><td colspan="5">Chyba: ${e.message}</td></tr>`;
+        const tdUid = document.createElement('td'); tdUid.className = 'px-3 py-2 font-mono text-sm'; tdUid.textContent = uid; tr.appendChild(tdUid);
+        const tdEmail = document.createElement('td'); tdEmail.className = 'px-3 py-2'; tdEmail.textContent = info && info.email ? info.email : ''; tr.appendChild(tdEmail);
+        const tdRole = document.createElement('td'); tdRole.className = 'px-3 py-2'; tdRole.textContent = info && info.role ? info.role : ''; tr.appendChild(tdRole);
+        const tdOdbor = document.createElement('td'); tdOdbor.className = 'px-3 py-2'; tdOdbor.textContent = info && info.odbor ? info.odbor : ''; tr.appendChild(tdOdbor);
+
+        const tdActions = document.createElement('td'); tdActions.className = 'px-3 py-2 space-x-2';
+        const editBtn = document.createElement('button');
+        editBtn.className = 'px-2 py-1 rounded bg-blue-600 text-white hover:bg-blue-700';
+        editBtn.textContent = 'Upravit';
+        editBtn.onclick = async () => {
+          const newEmail = prompt('Nový email:', (info && info.email) || '');
+          const newRole = prompt('Nová role:', (info && info.role) || '');
+          const newOdbor = prompt('Nový odbor:', (info && info.odbor) || '');
+          if (newEmail !== null && newRole !== null) {
+            try {
+              await upsertUser({ uid, email: newEmail, role: newRole, odbor: newOdbor });
+              await refresh();
+            } catch (e) {
+              alert(e.message);
+            }
+          }
+        };
+        const deleteBtn = document.createElement('button');
+        deleteBtn.className = 'px-2 py-1 rounded bg-red-600 text-white hover:bg-red-700';
+        deleteBtn.textContent = 'Smazat';
+        deleteBtn.onclick = async () => {
+          if (confirm('Opravdu smazat tohoto uživatele z /users?')) {
+            try { await deleteUserByUid(uid); await refresh(); } catch (e) { alert(e.message); }
+          }
+        };
+        tdActions.appendChild(editBtn);
+        tdActions.appendChild(deleteBtn);
+        tr.appendChild(tdActions);
+
+        tbody.appendChild(tr);
+      });
+    } catch (e) {
+      tbody.innerHTML = '';
+      const trErr = document.createElement('tr');
+      const tdErr = document.createElement('td');
+      tdErr.colSpan = 5; tdErr.className = 'px-3 py-2 text-red-600';
+      tdErr.textContent = e && e.message ? e.message : 'Chyba načítání';
+      trErr.appendChild(tdErr);
+      tbody.appendChild(trErr);
+    }
   }
+
+  await refresh();
 }
 
 
