@@ -1410,9 +1410,21 @@ function getDetailDataFromForm(formIdPrefix, key, detailTemplate) {
 async function renderUsersAdminPage() {
   const container = dom.assetDetailContainer;
   container.innerHTML = '<h2 class="text-3xl font-bold mb-4">Správa uživatelů</h2>';
+
   const table = document.createElement('table');
-  table.className = 'w-full border';
-  table.innerHTML = '<thead><tr><th>UID</th><th>Email</th><th>Role</th><th>Odbor</th><th>Akce</th></tr></thead><tbody></tbody>';
+  table.className = 'w-full border border-gray-200 rounded overflow-hidden';
+  table.innerHTML = `
+    <thead class="bg-gray-50">
+      <tr>
+        <th class="text-left px-3 py-2">UID</th>
+        <th class="text-left px-3 py-2">Email</th>
+        <th class="text-left px-3 py-2">Role</th>
+        <th class="text-left px-3 py-2">Odbor</th>
+        <th class="text-left px-3 py-2">Akce</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  `;
   const tbody = table.querySelector('tbody');
   container.appendChild(table);
 
@@ -1421,31 +1433,35 @@ async function renderUsersAdminPage() {
     tbody.innerHTML = '';
     Object.entries(users).forEach(([uid, info]) => {
       const tr = document.createElement('tr');
+      tr.className = 'border-t';
       tr.innerHTML = `
-        <td>${uid}</td>
-        <td>${info.email || ''}</td>
-        <td>${info.role || ''}</td>
-        <td>${info.odbor || ''}</td>
-        <td>
-          <button data-uid="${uid}" class="edit">Upravit</button>
-          <button data-uid="${uid}" class="delete">Smazat</button>
+        <td class="px-3 py-2 font-mono text-sm">${uid}</td>
+        <td class="px-3 py-2">${info.email || ''}</td>
+        <td class="px-3 py-2">${info.role || ''}</td>
+        <td class="px-3 py-2">${info.odbor || ''}</td>
+        <td class="px-3 py-2 space-x-2">
+          <button class="edit px-2 py-1 rounded bg-blue-600 text-white hover:bg-blue-700">Upravit</button>
+          <button class="delete px-2 py-1 rounded bg-red-600 text-white hover:bg-red-700">Smazat</button>
         </td>
       `;
-      tr.querySelector('.delete').onclick = async () => {
+
+      tr.querySelector('button.edit').onclick = async () => {
+        const newEmail = prompt('Nový email:', info.email || '');
+        const newRole = prompt('Nová role:', info.role || '');
+        const newOdbor = prompt('Nový odbor:', info.odbor || '');
+        if (newEmail !== null && newRole !== null) {
+          await upsertUser({ uid, email: newEmail, role: newRole, odbor: newOdbor });
+          renderUsersAdminPage();
+        }
+      };
+
+      tr.querySelector('button.delete').onclick = async () => {
         if (confirm('Smazat uživatele?')) {
           await deleteUserByUid(uid);
           renderUsersAdminPage();
         }
       };
-      tr.querySelector('.edit').onclick = () => {
-        const newEmail = prompt('Nový email:', info.email || '');
-        const newRole = prompt('Nová role:', info.role || '');
-        const newOdbor = prompt('Nový odbor:', info.odbor || '');
-        if (newEmail !== null && newRole !== null) {
-          upsertUser({ uid, email: newEmail, role: newRole, odbor: newOdbor });
-          renderUsersAdminPage();
-        }
-      };
+
       tbody.appendChild(tr);
     });
   } catch (e) {
