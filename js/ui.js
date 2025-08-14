@@ -3,6 +3,7 @@ import * as state from './state.js';
 import * as utils from './utils.js';
 import { createNewAgenda, updateAgenda, updateSupportAsset, createNewSupportAsset } from './api.js';
 import { reloadDataAndRebuildUI } from './auth.js';
+import { fetchUsers, upsertUser, deleteUserByUid } from './api.js';
 
 /**
  * Builds the navigation sidebar.
@@ -11,6 +12,26 @@ import { reloadDataAndRebuildUI } from './auth.js';
  * @param {number} [level=0] - The current recursion level.
  */
 export function buildNav(data, parentElement, level = 0) {
+  if (level === 0) {
+    const userRole = state.getUserRole();
+    if (userRole === 'administrator') {
+      const adminSection = document.createElement('div');
+      adminSection.className = 'mb-4';
+
+      const btn = document.createElement('button');
+      btn.textContent = 'Uživatelé';
+      btn.className = 'w-full text-left px-3 py-2 rounded hover:bg-gray-100 font-medium';
+      btn.onclick = () => renderUsersAdminPage();
+
+      adminSection.appendChild(btn);
+      parentElement.appendChild(adminSection);
+
+      const hr = document.createElement('hr');
+      hr.className = 'my-4';
+      parentElement.appendChild(hr);
+    }
+  }
+
     // Limit navigation depth in the sidebar to two levels.
     if (level >= 2) return; 
     const ul = document.createElement('ul');
@@ -1384,4 +1405,143 @@ function getDetailDataFromForm(formIdPrefix, key, detailTemplate) {
         if(input) newDetail.value = input.value;
     }
     return newDetail;
+}
+
+async function renderUsersAdminPage() {
+  const container = dom.assetDetailContainer;
+  container.innerHTML = '';
+
+  const title = document.createElement('h2');
+  title.textContent = 'Správa uživatelů';
+  title.className = 'text-3xl font-bold mb-4';
+  container.appendChild(title);
+
+  const form = document.createElement('form');
+  form.className = 'grid grid-cols-1 md:grid-cols-4 gap-3 items-end mb-6';
+
+  const uidInput = inputEl('UID', 'uid');
+  const emailInput = inputEl('E-mail (alternativa k UID)', 'email');
+  const roleSelect = selectEl('Role', 'role', [
+    { value: 'administrator', label: 'administrator' },
+    { value: 'garant', label: 'garant' },
+    { value: 'zamestnanec', label: 'zamestnanec' },
+  ]);
+  const odborInput = inputEl('Odbor (volitelné)', 'odbor');
+
+  const submitBtn = document.createElement('button');
+  submitBtn.type = 'submit';
+  submitBtn.textContent = 'Uložit';
+  submitBtn.className = 'px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700';
+
+  form.append(uidInput.wrapper, emailInput.wrapper, roleSelect.wrapper, odborInput.wrapper, submitBtn);
+  container.appendChild(form);
+
+  const table = document.createElement('table');
+  table.className = 'w-full border border-gray-200 rounded overflow-hidden';
+  table.innerHTML = `
+    <thead class="bg-gray-50">
+      <tr>
+        <th class="text-left px-3 py-2">UID</th>
+        <th class="text-left px-3 py-2">Role</th>
+        <th class="text-left px-3 py-2">Odbor</th>
+        <th class="text-left px-3 py-2 w-40">Akce</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  `;
+  const tbody = table.querySelector('tbody');
+  container.appendChild(table);
+
+  async function refresh() {
+    tbody.innerHTML = '<tr><td class="px-3 py-2" colspan="4">Načítám…</td></tr>';
+    try {
+      const users = await fetchUsers();
+      tbody.innerHTML = '';
+      Object.entries(users).forEach(([uid, info]) => {
+        const tr = document.createElement('tr');
+        tr.className = 'border-t';
+        tr.innerHTML = \`
+          <td class="px-3 py-2 font-mono text-sm">\${uid}</td>
+          <td class="px-3 py-2">\${info.role || ''}</td>
+          <td class="px-3 py-2">\${info.odbor || ''}</td>
+          <td class="px-3 py-2 space-x-2">
+            <button class="edit px-2 py-1 rounded bg-blue-600 text-white hover:bg-blue-700">Upravit</button>
+            <button class="delete px-2 py-1 rounded bg-red-600 text-white hover:bg-red-700">Smazat</button>
+          </td>
+        \`;
+        tr.querySelector('button.edit').onclick = () => {
+          uidInput.input.value = uid;
+          emailInput.input.value = '';
+          roleSelect.select.value = info.role || '';
+          odborInput.input.value = info.odbor || '';
+          uidInput.input.focus();
+        };
+        tr.querySelector('button.delete').onclick = async () => {
+          if (!confirm('Opravdu smazat tohoto uživatele z /users?')) return;
+          await deleteUserByUid(uid);
+          await refresh();
+        };
+        tbody.appendChild(tr);
+      });
+      if (!tbody.children.length) {
+        tbody.innerHTML = '<tr><td class="px-3 py-2" colspan="4">Žádní uživatelé.</td></tr>';
+      }
+    } catch (e) {
+      tbody.innerHTML = \`<tr><td class="px-3 py-2 text-red-600" colspan="4">\${e.message}</td></tr>\`;
+    }
+  }
+
+  form.onsubmit = async (e) => {
+    e.preventDefault();
+    const uid = uidInput.input.value.trim();
+    const email = emailInput.input.value.trim();
+    const role = roleSelect.select.value.trim();
+    const odbor = odborInput.input.value.trim() || null;
+
+    if (!uid && !email) {
+      alert('Zadejte alespoň UID nebo e-mail existujícího Auth uživatele.');
+      return;
+    }
+    if (!role) {
+      alert('Zadejte roli.');
+      return;
+    }
+    await upsertUser({ uid: uid || undefined, email: email || undefined, role, odbor });
+    form.reset();
+    await refresh();
+  };
+
+  await refresh();
+}
+
+function inputEl(label, name) {
+  const wrapper = document.createElement('label');
+  wrapper.className = 'block';
+  const span = document.createElement('span');
+  span.textContent = label;
+  span.className = 'block text-sm text-gray-600 mb-1';
+  const input = document.createElement('input');
+  input.name = name;
+  input.className = 'w-full px-3 py-2 border rounded';
+  wrapper.append(span, input);
+  return { wrapper, input };
+}
+
+function selectEl(label, name, options) {
+  const wrapper = document.createElement('label');
+  wrapper.className = 'block';
+  const span = document.createElement('span');
+  span.textContent = label;
+  span.className = 'block text-sm text-gray-600 mb-1';
+  const select = document.createElement('select');
+  select.name = name;
+  select.className = 'w-full px-3 py-2 border rounded';
+  for (const o of options) {
+    const opt = document.createElement('option');
+    opt.value = o.value;
+    opt.textContent = o.label;
+    select.appendChild(opt);
+  }
+  wrapper.append(span, select);
+  return { wrapper, select };
 }
