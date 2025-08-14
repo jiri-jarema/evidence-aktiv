@@ -19,6 +19,7 @@ export function buildNav(data, parentElement, level = 0) {
       adminSection.className = 'mb-4';
 
       const btn = document.createElement('button');
+      btn.id = 'nav-btn-users'; // Přidání ID
       btn.textContent = 'Uživatelé';
       btn.className = 'w-full text-left px-3 py-2 rounded hover:bg-gray-100 font-medium';
       btn.onclick = () => renderUsersAdminPage();
@@ -75,7 +76,7 @@ export function showCategoryContent(categoryId) {
     dom.welcomeMessage.classList.add('hidden');
     dom.assetDetailContainer.classList.remove('hidden');
     dom.assetDetailContainer.innerHTML = '';
-    document.querySelectorAll('.sidebar-item.active').forEach(el => el.classList.remove('active'));
+    document.querySelectorAll('.sidebar-item.active, #nav-btn-users.active').forEach(el => el.classList.remove('active'));
     document.querySelector(`.sidebar-item[data-id="${categoryId}"]`)?.classList.add('active');
 
     const parentId = utils.findParentId(categoryId);
@@ -170,7 +171,7 @@ export function showAssetDetails(assetId, parentId, changedKeys = []) {
     dom.welcomeMessage.classList.add('hidden');
     dom.assetDetailContainer.classList.remove('hidden');
     dom.assetDetailContainer.innerHTML = '';
-    document.querySelectorAll('.sidebar-item.active').forEach(el => el.classList.remove('active'));
+    document.querySelectorAll('.sidebar-item.active, #nav-btn-users.active').forEach(el => el.classList.remove('active'));
     
     const parentNavItem = document.querySelector(`.sidebar-item[data-id="${parentId}"]`);
     if(parentNavItem) parentNavItem.classList.add('active');
@@ -1407,8 +1408,17 @@ function getDetailDataFromForm(formIdPrefix, key, detailTemplate) {
     return newDetail;
 }
 
-// Nahraďte tímto celý obsah původní funkce renderUsersAdminPage()
+
 async function renderUsersAdminPage() {
+// Skryje uvítací zprávu a zobrazí hlavní kontejner
+dom.welcomeMessage.classList.add('hidden');
+dom.assetDetailContainer.classList.remove('hidden');
+
+// Odebere aktivní třídu ze všech položek menu a přidá ji tlačítku "Uživatelé"
+document.querySelectorAll('.sidebar-item.active, #nav-btn-users.active').forEach(el => el.classList.remove('active'));
+document.getElementById('nav-btn-users')?.classList.add('active');
+
+
   const container = dom.assetDetailContainer;
   container.innerHTML = '';
 
