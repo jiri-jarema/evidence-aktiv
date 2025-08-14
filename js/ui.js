@@ -1596,7 +1596,7 @@ async function renderUsersAdminPage() {
   };
 
   await refresh();
-}
+
 
 function inputEl(label, name) {
   const wrapper = document.createElement('label');
