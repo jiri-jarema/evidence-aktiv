@@ -1536,66 +1536,7 @@ async function renderUsersAdminPage() {
 }
 
 
-  async function refresh() {
-    tbody.innerHTML = '<tr><td class="px-3 py-2" colspan="4">Načítám…</td></tr>';
-    try {
-      const users = await fetchUsers();
-      tbody.innerHTML = '';
-      Object.entries(users).forEach(([uid, info]) => {
-        const tr = document.createElement('tr');
-        tr.className = 'border-t';
-        tr.innerHTML = `
-          <td class="px-3 py-2 font-mono text-sm">${uid}</td>
-          <td class="px-3 py-2">${info.role || ''}</td>
-          <td class="px-3 py-2">${info.odbor || ''}</td>
-          <td class="px-3 py-2 space-x-2">
-            <button class="edit px-2 py-1 rounded bg-blue-600 text-white hover:bg-blue-700">Upravit</button>
-            <button class="delete px-2 py-1 rounded bg-red-600 text-white hover:bg-red-700">Smazat</button>
-          </td>
-        `;
-        tr.querySelector('button.edit').onclick = () => {
-          uidInput.input.value = uid;
-          emailInput.input.value = '';
-          roleSelect.select.value = info.role || '';
-          odborInput.input.value = info.odbor || '';
-          uidInput.input.focus();
-        };
-        tr.querySelector('button.delete').onclick = async () => {
-          if (!confirm('Opravdu smazat tohoto uživatele z /users?')) return;
-          await deleteUserByUid(uid);
-          await refresh();
-        };
-        tbody.appendChild(tr);
-      });
-      if (!tbody.children.length) {
-        tbody.innerHTML = '<tr><td class="px-3 py-2" colspan="4">Žádní uživatelé.</td></tr>';
-      }
-    } catch (e) {
-      tbody.innerHTML = `<tr><td class="px-3 py-2 text-red-600" colspan="4">${e.message}</td></tr>`;
-    }
-  }
-
-  form.onsubmit = async (e) => {
-    e.preventDefault();
-    const uid = uidInput.input.value.trim();
-    const email = emailInput.input.value.trim();
-    const role = roleSelect.select.value.trim();
-    const odbor = odborInput.input.value.trim() || null;
-
-    if (!uid && !email) {
-      alert('Zadejte alespoň UID nebo e-mail existujícího Auth uživatele.');
-      return;
-    }
-    if (!role) {
-      alert('Zadejte roli.');
-      return;
-    }
-    await upsertUser({ uid: uid || undefined, email: email || undefined, role, odbor });
-    form.reset();
-    await refresh();
-  };
-
-  await refresh();
+ 
 
 
 function inputEl(label, name) {
