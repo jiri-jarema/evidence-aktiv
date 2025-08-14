@@ -1409,48 +1409,50 @@ function getDetailDataFromForm(formIdPrefix, key, detailTemplate) {
 
 async function renderUsersAdminPage() {
   const container = dom.assetDetailContainer;
-  container.innerHTML = '';
-
-  const title = document.createElement('h2');
-  title.textContent = 'Správa uživatelů';
-  title.className = 'text-3xl font-bold mb-4';
-  container.appendChild(title);
-
-  const form = document.createElement('form');
-  form.className = 'grid grid-cols-1 md:grid-cols-4 gap-3 items-end mb-6';
-
-  const uidInput = inputEl('UID', 'uid');
-  const emailInput = inputEl('E-mail (alternativa k UID)', 'email');
-  const roleSelect = selectEl('Role', 'role', [
-    { value: 'administrator', label: 'administrator' },
-    { value: 'garant', label: 'garant' },
-    { value: 'zamestnanec', label: 'zamestnanec' },
-  ]);
-  const odborInput = inputEl('Odbor (volitelné)', 'odbor');
-
-  const submitBtn = document.createElement('button');
-  submitBtn.type = 'submit';
-  submitBtn.textContent = 'Uložit';
-  submitBtn.className = 'px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700';
-
-  form.append(uidInput.wrapper, emailInput.wrapper, roleSelect.wrapper, odborInput.wrapper, submitBtn);
-  container.appendChild(form);
-
+  container.innerHTML = '<h2 class="text-3xl font-bold mb-4">Správa uživatelů</h2>';
   const table = document.createElement('table');
-  table.className = 'w-full border border-gray-200 rounded overflow-hidden';
-  table.innerHTML = `
-    <thead class="bg-gray-50">
-      <tr>
-        <th class="text-left px-3 py-2">UID</th>
-        <th class="text-left px-3 py-2">Role</th>
-        <th class="text-left px-3 py-2">Odbor</th>
-        <th class="text-left px-3 py-2 w-40">Akce</th>
-      </tr>
-    </thead>
-    <tbody></tbody>
-  `;
+  table.className = 'w-full border';
+  table.innerHTML = '<thead><tr><th>UID</th><th>Email</th><th>Role</th><th>Odbor</th><th>Akce</th></tr></thead><tbody></tbody>';
   const tbody = table.querySelector('tbody');
   container.appendChild(table);
+
+  try {
+    const users = await fetchUsers();
+    tbody.innerHTML = '';
+    Object.entries(users).forEach(([uid, info]) => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${uid}</td>
+        <td>${info.email || ''}</td>
+        <td>${info.role || ''}</td>
+        <td>${info.odbor || ''}</td>
+        <td>
+          <button data-uid="${uid}" class="edit">Upravit</button>
+          <button data-uid="${uid}" class="delete">Smazat</button>
+        </td>
+      `;
+      tr.querySelector('.delete').onclick = async () => {
+        if (confirm('Smazat uživatele?')) {
+          await deleteUserByUid(uid);
+          renderUsersAdminPage();
+        }
+      };
+      tr.querySelector('.edit').onclick = () => {
+        const newEmail = prompt('Nový email:', info.email || '');
+        const newRole = prompt('Nová role:', info.role || '');
+        const newOdbor = prompt('Nový odbor:', info.odbor || '');
+        if (newEmail !== null && newRole !== null) {
+          upsertUser({ uid, email: newEmail, role: newRole, odbor: newOdbor });
+          renderUsersAdminPage();
+        }
+      };
+      tbody.appendChild(tr);
+    });
+  } catch (e) {
+    tbody.innerHTML = `<tr><td colspan="5">Chyba: ${e.message}</td></tr>`;
+  }
+}
+
 
   async function refresh() {
     tbody.innerHTML = '<tr><td class="px-3 py-2" colspan="4">Načítám…</td></tr>';
