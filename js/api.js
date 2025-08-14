@@ -153,7 +153,6 @@ export async function updateService(payload) {
 }
 
 // === Admin user management API (appended) ===
-import { getCurrentUser } from './state.js';
 
 export async function fetchUsers() {
   const user = getCurrentUser();
