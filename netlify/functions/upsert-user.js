@@ -19,9 +19,17 @@ exports.handler = async (event) => {
   try {
     if (event.httpMethod !== 'POST') return { statusCode: 405, body: 'Method not allowed' };
     await verifyAdminRole(event);
-    const { uid } = JSON.parse(event.body || '{}');
-    if (!uid) return { statusCode: 400, body: 'Missing uid' };
-    await admin.database().ref(`/users/${uid}`).remove();
-    return { statusCode: 200, body: JSON.stringify({ success: true }) };
+    const payload = JSON.parse(event.body || '{}');
+    let targetUid = payload.uid;
+    if (!targetUid && payload.email) {
+      const userRecord = await admin.auth().getUserByEmail(payload.email);
+      targetUid = userRecord.uid;
+    }
+    if (!targetUid) return { statusCode: 400, body: 'Missing uid or email' };
+    const update = {};
+    if (payload.role) update.role = payload.role;
+    if (payload.odbor !== undefined) update.odbor = payload.odbor;
+    await admin.database().ref(`/users/${targetUid}`).update(update);
+    return { statusCode: 200, body: JSON.stringify({ success: true, uid: targetUid }) };
   } catch (err) { return { statusCode: err.statusCode || 400, body: err.message || 'Bad request' }; }
 };
