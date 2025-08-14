@@ -1460,15 +1460,15 @@ async function renderUsersAdminPage() {
       Object.entries(users).forEach(([uid, info]) => {
         const tr = document.createElement('tr');
         tr.className = 'border-t';
-        tr.innerHTML = \`
-          <td class="px-3 py-2 font-mono text-sm">\${uid}</td>
-          <td class="px-3 py-2">\${info.role || ''}</td>
-          <td class="px-3 py-2">\${info.odbor || ''}</td>
+        tr.innerHTML = `
+          <td class="px-3 py-2 font-mono text-sm">${uid}</td>
+          <td class="px-3 py-2">${info.role || ''}</td>
+          <td class="px-3 py-2">${info.odbor || ''}</td>
           <td class="px-3 py-2 space-x-2">
             <button class="edit px-2 py-1 rounded bg-blue-600 text-white hover:bg-blue-700">Upravit</button>
             <button class="delete px-2 py-1 rounded bg-red-600 text-white hover:bg-red-700">Smazat</button>
           </td>
-        \`;
+        `;
         tr.querySelector('button.edit').onclick = () => {
           uidInput.input.value = uid;
           emailInput.input.value = '';
@@ -1487,7 +1487,7 @@ async function renderUsersAdminPage() {
         tbody.innerHTML = '<tr><td class="px-3 py-2" colspan="4">Žádní uživatelé.</td></tr>';
       }
     } catch (e) {
-      tbody.innerHTML = \`<tr><td class="px-3 py-2 text-red-600" colspan="4">\${e.message}</td></tr>\`;
+      tbody.innerHTML = `<tr><td class="px-3 py-2 text-red-600" colspan="4">${e.message}</td></tr>`;
     }
   }
 
