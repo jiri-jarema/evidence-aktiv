@@ -1,9 +1,57 @@
 import * as dom from './dom.js';
 import * as state from './state.js';
 import * as utils from './utils.js';
-import { createNewAgenda, updateAgenda, updateSupportAsset, createNewSupportAsset } from './api.js';
+import * as api from './api.js';
 import { reloadDataAndRebuildUI } from './auth.js';
-import { fetchUsers, upsertUser, deleteUserByUid } from './api.js';
+
+/**
+ * Displays a custom confirmation modal.
+ * @param {string} message - The message to display in the modal.
+ * @param {function} onConfirm - The callback function to execute on confirmation.
+ */
+function showConfirmationModal(message, onConfirm) {
+    // Remove any existing modal
+    const existingModal = document.getElementById('confirmation-modal');
+    if (existingModal) {
+        existingModal.remove();
+    }
+
+    const modalOverlay = document.createElement('div');
+    modalOverlay.id = 'confirmation-modal';
+    modalOverlay.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
+
+    const modalContent = document.createElement('div');
+    modalContent.className = 'bg-white p-6 rounded-lg shadow-xl max-w-sm w-full';
+
+    const messageP = document.createElement('p');
+    messageP.className = 'text-lg mb-4';
+    messageP.textContent = message;
+
+    const buttonContainer = document.createElement('div');
+    buttonContainer.className = 'flex justify-end space-x-4';
+
+    const cancelButton = document.createElement('button');
+    cancelButton.textContent = 'Zrušit';
+    cancelButton.className = 'px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300';
+    cancelButton.onclick = () => modalOverlay.remove();
+
+    const confirmButton = document.createElement('button');
+    confirmButton.textContent = 'Potvrdit smazání';
+    confirmButton.className = 'px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700';
+    confirmButton.onclick = () => {
+        onConfirm();
+        modalOverlay.remove();
+    };
+
+    buttonContainer.appendChild(cancelButton);
+    buttonContainer.appendChild(confirmButton);
+    modalContent.appendChild(messageP);
+    modalContent.appendChild(buttonContainer);
+    modalOverlay.appendChild(modalContent);
+
+    document.body.appendChild(modalOverlay);
+}
+
 
 /**
  * Builds the navigation sidebar.
@@ -244,6 +292,9 @@ export function showAssetDetails(assetId, parentId, changedKeys = []) {
     }
 
     if (canEdit) {
+        const buttonGroup = document.createElement('div');
+        buttonGroup.className = 'flex space-x-2';
+
         const editButton = document.createElement('button');
         editButton.textContent = 'Upravit';
         editButton.className = 'px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300';
@@ -252,7 +303,29 @@ export function showAssetDetails(assetId, parentId, changedKeys = []) {
         } else {
             editButton.onclick = () => renderSupportAssetEditForm(assetId);
         }
-        titleContainer.appendChild(editButton);
+        buttonGroup.appendChild(editButton);
+
+        if (isAgenda && userRole === 'administrator') {
+            const deleteButton = document.createElement('button');
+            deleteButton.textContent = 'Smazat';
+            deleteButton.className = 'px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700';
+            deleteButton.onclick = () => {
+                showConfirmationModal(`Opravdu si přejete smazat agendu "${asset.name}"? Tato akce je nevratná.`, async () => {
+                    const success = await api.deleteAgenda(assetId);
+                    if (success) {
+                        const reloaded = await reloadDataAndRebuildUI();
+                        if (reloaded) {
+                            showCategoryContent(parentId); // Go back to parent category
+                        }
+                    } else {
+                        // The api.js function already shows an alert on failure
+                    }
+                });
+            };
+            buttonGroup.appendChild(deleteButton);
+        }
+        
+        titleContainer.appendChild(buttonGroup);
     }
     dom.assetDetailContainer.appendChild(titleContainer);
 
@@ -532,7 +605,7 @@ function renderNewAgendaForm(odborId) {
             alert('Název agendy nesmí být prázdný.');
             return;
         }
-        const success = await saveNewAgenda(odborId);
+        const success = await api.createNewAgenda(odborId);
         if (success) {
             const reloaded = await reloadDataAndRebuildUI();
             if (reloaded) {
@@ -1150,7 +1223,7 @@ async function saveNewAgenda(odborId) {
         newAgendaData.details[key] = getDetailDataFromForm('new-agenda', key, sampleDetails[key]);
     }
     
-    return await createNewAgenda(odborId, newAgendaData);
+    return await api.createNewAgenda(odborId, newAgendaData);
 }
 
 async function saveAgendaChanges(assetId) {
@@ -1196,7 +1269,7 @@ async function saveAgendaChanges(assetId) {
             linksToRemove,
             agendaId: assetId
         };
-        const success = await updateAgenda(payload);
+        const success = await api.updateAgenda(payload);
         return { changedKeys, success };
     }
     return { changedKeys: [], success: true }; // No changes, but operation is "successful"
@@ -1285,7 +1358,7 @@ async function saveSupportAssetChanges(assetId) {
         reciprocalLinks
     };
     
-    return await updateSupportAsset(payload);
+    return await api.updateSupportAsset(payload);
 }
 
 async function saveNewSupportAsset(categoryId) {
@@ -1336,7 +1409,7 @@ async function saveNewSupportAsset(categoryId) {
     }
     
     const payload = { assetPath: newAssetPath, newAssetData, reciprocalLinks };
-    return await createNewSupportAsset(payload);
+    return await api.createNewSupportAsset(payload);
 }
 
 
@@ -1440,7 +1513,7 @@ document.getElementById('nav-btn-users')?.classList.add('active');
     const odbor = (prompt('Odbor (volitelné):', '') || '').trim();
     if (!email && !uid) return alert('Zadejte alespoň e-mail nebo UID.');
     try {
-      await upsertUser({ uid: uid || undefined, email: email || undefined, role, odbor: odbor || undefined });
+      await api.upsertUser({ uid: uid || undefined, email: email || undefined, role, odbor: odbor || undefined });
       await refresh();
     } catch (e) {
       alert(e.message);
@@ -1478,7 +1551,7 @@ document.getElementById('nav-btn-users')?.classList.add('active');
     tbody.appendChild(rowLoading);
 
     try {
-      const users = await fetchUsers();
+      const users = await api.fetchUsers();
       tbody.innerHTML = '';
       const entries = Object.entries(users);
       if (!entries.length) {
@@ -1510,7 +1583,7 @@ document.getElementById('nav-btn-users')?.classList.add('active');
           const newOdbor = prompt('Nový odbor:', (info && info.odbor) || '');
           if (newEmail !== null && newRole !== null) {
             try {
-              await upsertUser({ uid, email: newEmail, role: newRole, odbor: newOdbor });
+              await api.upsertUser({ uid, email: newEmail, role: newRole, odbor: newOdbor });
               await refresh();
             } catch (e) {
               alert(e.message);
@@ -1521,9 +1594,9 @@ document.getElementById('nav-btn-users')?.classList.add('active');
         deleteBtn.className = 'px-2 py-1 rounded bg-red-600 text-white hover:bg-red-700';
         deleteBtn.textContent = 'Smazat';
         deleteBtn.onclick = async () => {
-          if (confirm('Opravdu smazat tohoto uživatele z /users?')) {
-            try { await deleteUserByUid(uid); await refresh(); } catch (e) { alert(e.message); }
-          }
+            showConfirmationModal(`Opravdu smazat tohoto uživatele z /users?`, async () => {
+                 try { await api.deleteUserByUid(uid); await refresh(); } catch (e) { alert(e.message); }
+            });
         };
         tdActions.appendChild(editBtn);
         tdActions.appendChild(deleteBtn);
@@ -1543,40 +1616,4 @@ document.getElementById('nav-btn-users')?.classList.add('active');
   }
 
   await refresh();
-}
-
-
- 
-
-
-function inputEl(label, name) {
-  const wrapper = document.createElement('label');
-  wrapper.className = 'block';
-  const span = document.createElement('span');
-  span.textContent = label;
-  span.className = 'block text-sm text-gray-600 mb-1';
-  const input = document.createElement('input');
-  input.name = name;
-  input.className = 'w-full px-3 py-2 border rounded';
-  wrapper.append(span, input);
-  return { wrapper, input };
-}
-
-function selectEl(label, name, options) {
-  const wrapper = document.createElement('label');
-  wrapper.className = 'block';
-  const span = document.createElement('span');
-  span.textContent = label;
-  span.className = 'block text-sm text-gray-600 mb-1';
-  const select = document.createElement('select');
-  select.name = name;
-  select.className = 'w-full px-3 py-2 border rounded';
-  for (const o of options) {
-    const opt = document.createElement('option');
-    opt.value = o.value;
-    opt.textContent = o.label;
-    select.appendChild(opt);
-  }
-  wrapper.append(span, select);
-  return { wrapper, select };
 }

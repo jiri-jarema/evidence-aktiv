@@ -1,4 +1,6 @@
-import { getCurrentUser } from './state.js';
+import { getCurrentUser, getAllAssets } from './state.js';
+import { getPathForAsset } from './utils.js';
+
 
 /**
  * Fetches the initial data from the server.
@@ -135,9 +137,6 @@ export async function updateService(payload) {
 
     const idToken = await user.getIdToken();
     try {
-        // Note: This function might need to be deprecated or changed
-        // if the data structure for services is completely refactored.
-        // For now, it points to the old backend function.
         const response = await fetch('/.netlify/functions/update-service', {
             method: 'POST',
             headers: { 'Authorization': `Bearer ${idToken}` },
@@ -151,6 +150,49 @@ export async function updateService(payload) {
         return false;
     }
 }
+
+/**
+ * Deletes an agenda item and its reciprocal links from the server.
+ * @param {string} assetId - The ID of the agenda to delete.
+ * @returns {Promise<boolean>} - True if successful, false otherwise.
+ */
+export async function deleteAgenda(assetId) {
+    const user = getCurrentUser();
+    if (!user) return false;
+
+    const allAssets = getAllAssets();
+    const assetToDelete = allAssets[assetId];
+    if (!assetToDelete) {
+        console.error('Asset to delete not found in state.');
+        return false;
+    }
+
+    // Find linked systems
+    const linkedSystems = [];
+    const processingMethods = assetToDelete.details?.["Způsob zpracování"]?.value || [];
+    const aisMethod = processingMethods.find(m => m.label.includes("agendový informační systém"));
+    if (aisMethod && aisMethod.linksTo) {
+        linkedSystems.push(...aisMethod.linksTo);
+    }
+
+    const agendaPath = getPathForAsset(assetId);
+    const idToken = await user.getIdToken();
+
+    try {
+        const response = await fetch('/.netlify/functions/delete-agenda', {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${idToken}` },
+            body: JSON.stringify({ agendaId: assetId, agendaPath, linkedSystems })
+        });
+        if (!response.ok) throw new Error(await response.text());
+        return true;
+    } catch (error) {
+        console.error('Chyba při mazání agendy:', error);
+        alert('Nepodařilo se smazat agendu.');
+        return false;
+    }
+}
+
 
 // === Admin user management API (appended) ===
 
