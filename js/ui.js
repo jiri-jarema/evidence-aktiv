@@ -532,8 +532,8 @@ function createDetailsForForm(categoryId, existingDetails, detailOrder) {
         }
 
         // 3. If no template, create a default structure for known link types
-        const linkFields = ['Služby úřadu', 'Agendy', 'Regulovaná služba', 'Aplikační server', 'Databáze', 'Sítě', 'Server', 'Cil_zalohovani', 'Provozovane_databaze', 'Provozovane_informacni_systemy', 'Informacni_systemy_vyuzivajici_DB', 'Informacni_systemy'];
-        if (linkFields.includes(key.replace(/ /g, '_'))) {
+        const linkFields = ['Služby úřadu', 'Agendy', 'Regulovaná služba', 'Aplikační server', 'Databáze', 'Sítě', 'Server', 'Cil_zalohovani', 'Provozovane_databaze', 'Provozovane_informacni_systemy', 'Informacni_systemy_vyuzivajici_DB', 'Informacni_systemy', 'Agendový informační systém'];
+        if (linkFields.includes(key.replace(/_/g, ' '))) {
             detailsForForm[key] = { linksTo: [] };
         }
     }
@@ -1091,7 +1091,7 @@ async function saveNewAgenda(odborId) {
     const newName = newNameInput.value.trim();
 
     if (!newName) {
-        alert('Název agendy je povinný.');
+        alert('Název agendy nesmí být prázdný.');
         return false;
     }
 
