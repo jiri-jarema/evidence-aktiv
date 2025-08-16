@@ -70,6 +70,7 @@ exports.handler = async function(event, context) {
         updates[`${assetPath}/details`] = updatedDetails;
 
         if (reciprocalLinks) {
+            // Stávající logika pro informační systémy, servery atd.
             for (const link of (reciprocalLinks.toAdd || [])) {
                 const { targetPath, sourceId } = link;
                 const snapshot = await db.ref(targetPath).once('value');
@@ -90,6 +91,7 @@ exports.handler = async function(event, context) {
                 updates[targetPath] = filteredLinks.length > 0 ? filteredLinks : ""; // Oprava na ""
             }
 
+            // Nová logika pro vazby Služba -> Agenda
             for (const agendaId of (reciprocalLinks.agendasToAdd || [])) {
                  const targetAgendaPath = await findAgendaPath(agendaId);
                  if (targetAgendaPath) {
@@ -106,7 +108,7 @@ exports.handler = async function(event, context) {
                  if (targetAgendaPath) {
                      const agendaServiceLinksPath = `${targetAgendaPath}/details/Služby úřadu/linksTo`;
                      const snapshot = await db.ref(agendaServiceLinksPath).once('value');
-                     let links = snapshot.val();
+                     let links = snapshot.val() || [];
                      if (!Array.isArray(links)) links = []; // Oprava
                      const filteredLinks = links.filter(id => id !== reciprocalLinks.sourceId);
                      updates[agendaServiceLinksPath] = filteredLinks.length > 0 ? filteredLinks : ""; // Oprava na ""
