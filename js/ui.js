@@ -825,6 +825,7 @@ function renderEditFormFields(formFragment, assetId, details, detailOrder) {
         const inputContainer = document.createElement('div');
 
         if (!detail) {
+            // This case should be rare now, but as a fallback:
             const text = document.createElement('p');
             text.textContent = 'Tato položka nemá definovanou strukturu.';
             text.className = 'text-gray-500 pt-2';
@@ -1134,7 +1135,7 @@ async function saveAgendaChanges(assetId) {
         }
     }
 
-    if (changedKeys.length > 0) {
+    if (Object.keys(updatedDetails).length > 0 && (changedKeys.length > 0 || JSON.stringify(asset.details) !== JSON.stringify(updatedDetails))) {
         const agendaPath = `agendy/children/${parentId}/children/${assetId}`;
 
         const originalAisMethod = asset.details?.["Způsob zpracování"]?.value.find(m => m.label.includes("agendový"));
