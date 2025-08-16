@@ -34,6 +34,28 @@ async function verifyUser(authorization) {
     }
 }
 
+// Funkce pro získání celé cesty k položce (např. službě)
+async function findPath(rootRef, targetId) {
+    const snapshot = await rootRef.once('value');
+    const data = snapshot.val();
+    
+    function search(currentPath, currentNode) {
+        for (const key in currentNode) {
+            if (key === targetId) {
+                return `${currentPath}/${key}`;
+            }
+            if (typeof currentNode[key] === 'object' && currentNode[key] !== null) {
+                const result = search(`${currentPath}/${key}`, currentNode[key]);
+                if (result) return result;
+            }
+        }
+        return null;
+    }
+    
+    return search('', data);
+}
+
+
 exports.handler = async function(event, context) {
     if (event.httpMethod !== 'POST') {
         return { statusCode: 405, body: 'Method Not Allowed' };
@@ -43,7 +65,7 @@ exports.handler = async function(event, context) {
     if (error) return error;
 
     try {
-        const { agendaPath, newName, updatedAgendaDetails, linksToAdd, linksToRemove, agendaId } = JSON.parse(event.body);
+        const { agendaPath, newName, updatedAgendaDetails, linksToAdd, linksToRemove, serviceLinks, agendaId } = JSON.parse(event.body);
         
         const odborId = agendaPath.split('/')[2];
         if (!odborId) {
@@ -57,30 +79,53 @@ exports.handler = async function(event, context) {
 
         const updates = {};
         
-        // Přidání aktualizace názvu, pokud byl změněn
+        // Aktualizace názvu
         if (newName) {
             updates[`${agendaPath}/name`] = newName;
         }
         updates[`${agendaPath}/details`] = updatedAgendaDetails;
-
-        for (const systemId of linksToAdd) {
-            // Updated path from 'Osobní údaje' to 'Agendy'
+        
+        // Zpracování vazeb na informační systémy
+        for (const systemId of (linksToAdd || [])) {
             const systemLinksPath = `primarni/children/informacni-systemy/children/${systemId}/details/Agendy/linksTo`;
             const snapshot = await db.ref(systemLinksPath).once('value');
             let links = snapshot.val() || [];
-            if (!links.includes(agendaId)) {
-                links.push(agendaId);
-            }
+            if (!links.includes(agendaId)) links.push(agendaId);
             updates[systemLinksPath] = links;
         }
 
-        for (const systemId of linksToRemove) {
-            // Updated path from 'Osobní údaje' to 'Agendy'
+        for (const systemId of (linksToRemove || [])) {
             const systemLinksPath = `primarni/children/informacni-systemy/children/${systemId}/details/Agendy/linksTo`;
             const snapshot = await db.ref(systemLinksPath).once('value');
             let links = snapshot.val() || [];
             links = links.filter(id => id !== agendaId);
-            updates[systemLinksPath] = links;
+            updates[systemLinksPath] = links.length > 0 ? links : null;
+        }
+
+        // Zpracování nových vazeb na služby
+        if (serviceLinks) {
+            // Přidání nových vazeb
+            for (const serviceId of (serviceLinks.toAdd || [])) {
+                const servicePath = await findPath(db.ref('primarni/children/sluzby'), serviceId);
+                if (servicePath) {
+                    const serviceAgendaLinksPath = `${servicePath.substring(1)}/details/Agendy/linksTo`;
+                    const snapshot = await db.ref(serviceAgendaLinksPath).once('value');
+                    let links = snapshot.val() || [];
+                    if (!links.includes(agendaId)) links.push(agendaId);
+                    updates[serviceAgendaLinksPath] = links;
+                }
+            }
+             // Odebrání starých vazeb
+            for (const serviceId of (serviceLinks.toRemove || [])) {
+                const servicePath = await findPath(db.ref('primarni/children/sluzby'), serviceId);
+                if (servicePath) {
+                     const serviceAgendaLinksPath = `${servicePath.substring(1)}/details/Agendy/linksTo`;
+                     const snapshot = await db.ref(serviceAgendaLinksPath).once('value');
+                     let links = snapshot.val() || [];
+                     links = links.filter(id => id !== agendaId);
+                     updates[serviceAgendaLinksPath] = links.length > 0 ? links : null;
+                }
+            }
         }
 
         await db.ref().update(updates);

@@ -15,10 +15,16 @@ export const detailOrder = [
     "Lhůty pro výmaz", "Zpracovatel", "Jmenný seznam oprávněných osob",
     "Kategorie příjemců osobních údajů", "Propojení na jiné správce nebo zpracovatele",
     "Předávání osobních údajů do třetí země", "Zabezpečení zpracování - elektronické",
-    "Zabezpečení zpracování - analogové"
+    "Zabezpečení zpracování - analogové", "Služby úřadu"
 ];
 
 export const reciprocalMap = {
+    'agendy': { // Přidáno pro vazbu Agenda -> Služba
+        'Služby_úřadu': {
+            targetCategoryPath: 'primarni/children/sluzby',
+            reciprocalField: 'Agendy'
+        }
+    },
     'podpurna/children/databaze': {
         'Informacni_systemy_vyuzivajici_DB': {
             targetCategoryPath: 'primarni/children/informacni-systemy',
@@ -54,9 +60,9 @@ export const reciprocalMap = {
         }
     },
     'primarni/children/informacni-systemy': {
-        'Agendy': { 
+        'Agendy': {
             targetCategoryPath: 'agendy',
-            reciprocalField: 'Způsob zpracování'
+            reciprocalField: 'Způsob zpracování' // Pozor, toto je speciální případ
         },
         'Databaze': {
             targetCategoryPath: 'podpurna/children/databaze',
@@ -68,22 +74,25 @@ export const reciprocalMap = {
         },
         'Regulovaná_služba': {
             targetCategoryPath: 'primarni/children/sluzby',
-            // CORRECTED: Use space to match the actual key in the service's details object.
-            reciprocalField: 'Agendový informační systém' 
+            reciprocalField: 'Agendový informační systém'
         },
         'Sítě': {
             targetCategoryPath: 'podpurna/children/site',
             reciprocalField: 'Informacni_systemy'
         }
     },
-    'primarni/children/sluzby': {
+    'primarni/children/sluzby': { // Přidáno pro vazbu Služba -> Agenda
+        'Agendy': {
+            targetCategoryPath: 'agendy',
+            reciprocalField: 'Služby úřadu'
+        },
         'Agendový_informační_systém': {
             targetCategoryPath: 'primarni/children/informacni-systemy',
-            // CORRECTED: Use space to match the actual key in the IS's details object.
             reciprocalField: 'Regulovaná služba'
         }
     }
 };
+
 
 // Getters
 export const getCurrentUser = () => currentUser;

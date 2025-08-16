@@ -34,6 +34,19 @@ async function verifyUser(authorization) {
     }
 }
 
+// Funkce pro získání celé cesty k agendě
+async function findAgendaPath(agendaId) {
+    const agendyRef = db.ref('agendy/children');
+    const snapshot = await agendyRef.once('value');
+    const odbory = snapshot.val();
+    for (const odborId in odbory) {
+        if (odbory[odborId].children && odbory[odborId].children[agendaId]) {
+            return `agendy/children/${odborId}/children/${agendaId}`;
+        }
+    }
+    return null;
+}
+
 exports.handler = async function(event, context) {
     if (event.httpMethod !== 'POST') {
         return { statusCode: 405, body: 'Method Not Allowed' };
@@ -57,7 +70,8 @@ exports.handler = async function(event, context) {
         updates[`${assetPath}/details`] = updatedDetails;
 
         if (reciprocalLinks) {
-            for (const link of reciprocalLinks.toAdd) {
+            // Stávající logika pro informační systémy, servery atd.
+            for (const link of (reciprocalLinks.toAdd || [])) {
                 const { targetPath, sourceId } = link;
                 const snapshot = await db.ref(targetPath).once('value');
                 let links = snapshot.val() || [];
@@ -68,13 +82,35 @@ exports.handler = async function(event, context) {
                 updates[targetPath] = links;
             }
 
-            for (const link of reciprocalLinks.toRemove) {
+            for (const link of (reciprocalLinks.toRemove || [])) {
                 const { targetPath, sourceId } = link;
                 const snapshot = await db.ref(targetPath).once('value');
                 let links = snapshot.val() || [];
                 if (Array.isArray(links)) {
                     updates[targetPath] = links.filter(id => id !== sourceId);
                 }
+            }
+
+            // Nová logika pro vazby Služba -> Agenda
+            for (const agendaId of (reciprocalLinks.agendasToAdd || [])) {
+                 const targetAgendaPath = await findAgendaPath(agendaId);
+                 if (targetAgendaPath) {
+                     const agendaServiceLinksPath = `${targetAgendaPath}/details/Služby úřadu/linksTo`;
+                     const snapshot = await db.ref(agendaServiceLinksPath).once('value');
+                     let links = snapshot.val() || [];
+                     if (!links.includes(reciprocalLinks.sourceId)) links.push(reciprocalLinks.sourceId);
+                     updates[agendaServiceLinksPath] = links;
+                 }
+            }
+             for (const agendaId of (reciprocalLinks.agendasToRemove || [])) {
+                 const targetAgendaPath = await findAgendaPath(agendaId);
+                 if (targetAgendaPath) {
+                     const agendaServiceLinksPath = `${targetAgendaPath}/details/Služby úřadu/linksTo`;
+                     const snapshot = await db.ref(agendaServiceLinksPath).once('value');
+                     let links = snapshot.val() || [];
+                     links = links.filter(id => id !== reciprocalLinks.sourceId);
+                     updates[agendaServiceLinksPath] = links.length > 0 ? links : null;
+                 }
             }
         }
 
@@ -91,4 +127,4 @@ exports.handler = async function(event, context) {
             body: JSON.stringify({ error: 'Failed to update support asset.' }),
         };
     }
-};
+}

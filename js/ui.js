@@ -221,8 +221,13 @@ export function showAssetDetails(assetId, parentId, changedKeys = []) {
     dom.assetDetailContainer.innerHTML = '';
     document.querySelectorAll('.sidebar-item.active, #nav-btn-users.active').forEach(el => el.classList.remove('active'));
     
-    const parentNavItem = document.querySelector(`.sidebar-item[data-id="${parentId}"]`);
-    if(parentNavItem) parentNavItem.classList.add('active');
+    const navItem = document.querySelector(`.sidebar-item[data-id="${assetId}"]`);
+    if (navItem) {
+      navItem.classList.add('active');
+    } else {
+      const parentNavItem = document.querySelector(`.sidebar-item[data-id="${parentId}"]`);
+      if(parentNavItem) parentNavItem.classList.add('active');
+    }
 
 
     if (parentId && allAssets[parentId]) {
@@ -278,7 +283,7 @@ export function showAssetDetails(assetId, parentId, changedKeys = []) {
     titleContainer.appendChild(title);
 
     const grandparentId = utils.findParentId(parentId);
-    const isAgenda = grandparentId === 'agendy';
+    const isAgenda = grandparentId === 'agendy' || parentId === 'agendy'; // Upraveno pro hlubší zanoření
     const isService = asset.type === 'jednotliva-sluzba';
     const isSupportOrPrimary = !isAgenda && !isService;
     const userRole = state.getUserRole();
@@ -340,38 +345,26 @@ function renderGenericDetails(asset, assetId, changedKeys = []) {
     detailsGrid.className = 'details-grid';
     const sharedOptions = state.getSharedOptions();
 
-    if (asset.type === 'jednotliva-sluzba') {
-        const serviceFields = ['Legislativa', 'Agendový informační systém'];
-        
-        serviceFields.forEach(key => {
-            const dt = document.createElement('dt');
-            dt.textContent = key.replace(/_/g, ' ');
-            const dd = document.createElement('dd');
-
-            const detail = asset.details[key];
-
-            if (detail) {
-                if (detail.linksTo && detail.linksTo.length > 0) {
-                    dd.appendChild(utils.createLinksFragment(detail.linksTo, showAssetDetails));
-                } else {
-                    dd.textContent = detail.value || '-';
-                }
-            } else {
-                dd.textContent = '-';
-            }
-            detailsGrid.appendChild(dt);
-            detailsGrid.appendChild(dd);
-        });
-
-        dom.assetDetailContainer.appendChild(detailsGrid);
-        return;
-    }
-
+    // Sjednocení logiky pro agendy a služby
+    const isService = asset.type === 'jednotliva-sluzba';
+    const isAgenda = utils.getPathForAsset(assetId).startsWith('agendy');
 
     if (asset.details && Object.keys(asset.details).length > 0) {
-        const grandparentId = utils.findParentId(utils.findParentId(assetId));
-        const isAgenda = grandparentId === 'agendy';
-        const keysToRender = isAgenda ? state.detailOrder : Object.keys(asset.details).sort();
+        let keysToRender = Object.keys(asset.details).sort();
+
+        if (isAgenda) {
+            // Použijeme a přizpůsobíme detailOrder
+            const orderedKeys = new Set(state.detailOrder);
+            const remainingKeys = Object.keys(asset.details).filter(k => !orderedKeys.has(k)).sort();
+            keysToRender = [...state.detailOrder.filter(k => asset.details[k]), ...remainingKeys];
+        } else if (isService) {
+            // Pořadí pro služby
+            const serviceOrder = ['Legislativa', 'Agendový informační systém', 'Agendy'];
+            const orderedKeys = new Set(serviceOrder);
+            const remainingKeys = Object.keys(asset.details).filter(k => !orderedKeys.has(k)).sort();
+            keysToRender = [...serviceOrder.filter(k => asset.details[k]), ...remainingKeys];
+        }
+
 
         keysToRender.forEach(key => {
             if (asset.details[key]) {
@@ -1080,10 +1073,13 @@ function renderNewSupportAssetForm(categoryId) {
 function renderLinkSelector(container, assetId, key, detail, newAssetCategoryId = null) {
     const allAssets = state.getAllAssets();
     
+    // Získání cesty k aktuálnímu aktivu
     let assetPath;
-    if (newAssetCategoryId) {
-        const parentId = utils.findParentId(newAssetCategoryId);
-        assetPath = `${parentId}/children/${newAssetCategoryId}`;
+    const isNewAsset = assetId.startsWith('new-asset-');
+    if (isNewAsset) {
+        // U nového aktiva bereme cestu z kategorie, do které ho přidáváme
+        const categoryId = assetId.replace('new-asset-', '');
+        assetPath = utils.getPathForAsset(categoryId);
     } else {
         assetPath = utils.getPathForAsset(assetId);
     }
@@ -1095,61 +1091,40 @@ function renderLinkSelector(container, assetId, key, detail, newAssetCategoryId 
     const currentLinks = Array.isArray(detail.linksTo) ? detail.linksTo : (detail.linksTo ? [detail.linksTo] : []);
 
     const updateDropdown = (selectEl, currentSelection) => {
-        const assetCategoryPath = Object.keys(state.reciprocalMap).find(p => assetPath.startsWith(p));
+        // Najdeme správnou konfiguraci pro linkování
+        const assetCategoryPath = Object.keys(state.reciprocalMap).find(p => assetPath.startsWith(p) || p === 'agendy' && assetPath.startsWith('agendy'));
         if (!assetCategoryPath) {
              console.warn(`No reciprocalMap config found for asset path: ${assetPath}`);
+             selectEl.innerHTML = '<option value="">Chyba konfigurace</option>';
              return;
         }
+        
         const linkConfig = state.reciprocalMap[assetCategoryPath]?.[key.replace(/ /g, '_')];
         if (!linkConfig) {
              console.warn(`No linkConfig found for key ${key.replace(/ /g, '_')} in path ${assetCategoryPath}`);
+             selectEl.innerHTML = '<option value="">Chyba konfigurace</option>';
              return;
         }
         
         const targetCategory = utils.getObjectByPath(state.getAssetData(), linkConfig.targetCategoryPath);
         selectEl.innerHTML = '<option value="">Vyberte položku...</option>';
         
-        if (key === 'Regulovaná služba') {
-            const servicesRoot = targetCategory.children; 
-            for (const categoryKey in servicesRoot) {
-                const serviceCategory = servicesRoot[categoryKey];
-                if (serviceCategory.children) {
-                    for (const serviceId in serviceCategory.children) {
-                         if (!currentSelection.includes(serviceId)) {
-                            const service = serviceCategory.children[serviceId];
-                            const option = document.createElement('option');
-                            option.value = serviceId;
-                            option.textContent = `${serviceCategory.name} - ${service.name}`;
-                            selectEl.appendChild(option);
-                        }
-                    }
-                }
-            }
-        } else if (linkConfig.targetCategoryPath === 'agendy') {
-            const agendyRoot = state.getAssetData().agendy.children;
-            for (const odborKey in agendyRoot) {
-                const odbor = agendyRoot[odborKey];
-                if (odbor.children) {
-                    for (const agendaId in odbor.children) {
-                         if (!currentSelection.includes(agendaId)) {
-                            const option = document.createElement('option');
-                            option.value = agendaId;
-                            option.textContent = `${odbor.name} - ${odbor.children[agendaId].name}`;
-                            selectEl.appendChild(option);
-                        }
-                    }
-                }
-            }
-        } else if (targetCategory && targetCategory.children) {
-            for (const targetId in targetCategory.children) {
-                if (!currentSelection.includes(targetId)) {
+        // Zvláštní logika pro vnořené služby a agendy
+        const populateOptions = (category, prefix = '') => {
+            if (!category || !category.children) return;
+            for (const [id, item] of Object.entries(category.children)) {
+                if (item.children) {
+                    populateOptions(item, `${prefix}${item.name} / `);
+                } else if (!currentSelection.includes(id)) {
                     const option = document.createElement('option');
-                    option.value = targetId;
-                    option.textContent = targetCategory.children[targetId].name;
+                    option.value = id;
+                    option.textContent = `${prefix}${item.name}`;
                     selectEl.appendChild(option);
                 }
             }
-        }
+        };
+
+        populateOptions(targetCategory);
     };
     
     const addSelectedItem = (id, name) => {
