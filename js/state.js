@@ -18,8 +18,27 @@ export const detailOrder = [
     "Zabezpečení zpracování - analogové", "Služby úřadu"
 ];
 
+// Nově přidané konstanty pro sjednocení pořadí
+export const serviceDetailOrder = [
+    "Legislativa", "Agendový informační systém", "Agendy"
+];
+
+export const infoSystemDetailOrder = [
+    "Popis", "Vlastník", "SpravceNeboZastupce", "Uživatelé", "Stav aktiva", "Koncepce",
+    "Přístup", "Nedostupnost", "Klasifikace informací", "Aplikační server", "Databáze",
+    "Sítě", "Regulovaná služba", "Agendy", "Zabezpečení"
+];
+
+export const defaultSupportAssetOrder = [
+    "Vlastnik", "Spravce_zastupce", "Stav_aktiva", "Datum_porizeni", "Termin_obnovy", "SLA", "Model",
+    "Funkce", "Operacni_system", "Vybaveni", "Provozovane_informacni_systemy", "Provozovane_databaze",
+    "Informacni_systemy_vyuzivajici_DB", "Server", "Cil_zalohovani", "Frekvence_zalohovani", "Verze",
+    "Informacni_systemy", "Poznamka"
+];
+
+
 export const reciprocalMap = {
-    'agendy': { // Přidáno pro vazbu Agenda -> Služba
+    'agendy': {
         'Služby_úřadu': {
             targetCategoryPath: 'primarni/children/sluzby',
             reciprocalField: 'Agendy'
@@ -62,7 +81,7 @@ export const reciprocalMap = {
     'primarni/children/informacni-systemy': {
         'Agendy': {
             targetCategoryPath: 'agendy',
-            reciprocalField: 'Způsob zpracování' // Pozor, toto je speciální případ
+            reciprocalField: 'Způsob zpracování'
         },
         'Databaze': {
             targetCategoryPath: 'podpurna/children/databaze',
@@ -81,7 +100,7 @@ export const reciprocalMap = {
             reciprocalField: 'Informacni_systemy'
         }
     },
-    'primarni/children/sluzby': { // Přidáno pro vazbu Služba -> Agenda
+    'primarni/children/sluzby': {
         'Agendy': {
             targetCategoryPath: 'agendy',
             reciprocalField: 'Služby úřadu'
@@ -92,7 +111,6 @@ export const reciprocalMap = {
         }
     }
 };
-
 
 // Getters
 export const getCurrentUser = () => currentUser;
