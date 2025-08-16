@@ -88,6 +88,10 @@ export function getObjectByPath(obj, path) {
 export function createLinksFragment(linksTo, clickHandler) {
     const allAssets = getAllAssets();
     const fragment = document.createDocumentFragment();
+    
+    // Oprava: Zpracuje prázdný řetězec jako prázdné pole
+    if (!linksTo || linksTo === "") return fragment;
+
     const links = Array.isArray(linksTo) ? linksTo : [linksTo];
     links.forEach(linkId => {
         if (!linkId) return;
