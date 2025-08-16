@@ -70,12 +70,11 @@ exports.handler = async function(event, context) {
         updates[`${assetPath}/details`] = updatedDetails;
 
         if (reciprocalLinks) {
-            // Stávající logika pro informační systémy, servery atd.
             for (const link of (reciprocalLinks.toAdd || [])) {
                 const { targetPath, sourceId } = link;
                 const snapshot = await db.ref(targetPath).once('value');
-                let links = snapshot.val() || [];
-                if (!Array.isArray(links)) links = [];
+                let links = snapshot.val();
+                if (!Array.isArray(links)) links = []; // Oprava
                 if (!links.includes(sourceId)) {
                     links.push(sourceId);
                 }
@@ -85,19 +84,19 @@ exports.handler = async function(event, context) {
             for (const link of (reciprocalLinks.toRemove || [])) {
                 const { targetPath, sourceId } = link;
                 const snapshot = await db.ref(targetPath).once('value');
-                let links = snapshot.val() || [];
-                if (Array.isArray(links)) {
-                    updates[targetPath] = links.filter(id => id !== sourceId);
-                }
+                let links = snapshot.val();
+                if (!Array.isArray(links)) links = []; // Oprava
+                const filteredLinks = links.filter(id => id !== sourceId);
+                updates[targetPath] = filteredLinks.length > 0 ? filteredLinks : ""; // Oprava na ""
             }
 
-            // Nová logika pro vazby Služba -> Agenda
             for (const agendaId of (reciprocalLinks.agendasToAdd || [])) {
                  const targetAgendaPath = await findAgendaPath(agendaId);
                  if (targetAgendaPath) {
                      const agendaServiceLinksPath = `${targetAgendaPath}/details/Služby úřadu/linksTo`;
                      const snapshot = await db.ref(agendaServiceLinksPath).once('value');
-                     let links = snapshot.val() || [];
+                     let links = snapshot.val();
+                     if (!Array.isArray(links)) links = []; // Oprava
                      if (!links.includes(reciprocalLinks.sourceId)) links.push(reciprocalLinks.sourceId);
                      updates[agendaServiceLinksPath] = links;
                  }
@@ -107,9 +106,10 @@ exports.handler = async function(event, context) {
                  if (targetAgendaPath) {
                      const agendaServiceLinksPath = `${targetAgendaPath}/details/Služby úřadu/linksTo`;
                      const snapshot = await db.ref(agendaServiceLinksPath).once('value');
-                     let links = snapshot.val() || [];
-                     links = links.filter(id => id !== reciprocalLinks.sourceId);
-                     updates[agendaServiceLinksPath] = links.length > 0 ? links : null;
+                     let links = snapshot.val();
+                     if (!Array.isArray(links)) links = []; // Oprava
+                     const filteredLinks = links.filter(id => id !== reciprocalLinks.sourceId);
+                     updates[agendaServiceLinksPath] = filteredLinks.length > 0 ? filteredLinks : ""; // Oprava na ""
                  }
             }
         }
@@ -127,4 +127,4 @@ exports.handler = async function(event, context) {
             body: JSON.stringify({ error: 'Failed to update support asset.' }),
         };
     }
-}
+};
