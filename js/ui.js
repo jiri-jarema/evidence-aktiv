@@ -1,5 +1,23 @@
 import { state, setState } from './state.js';
-import { findAssetByPath, getOptions } from './utils.js';
+import { getOptions } from './utils.js';
+
+// Function to find an asset by its path (restored to its original location)
+function findAssetByPath(data, path) {
+    if (!path) return null;
+    const pathParts = path.split('.children.');
+    let currentAsset = data;
+    for (const part of pathParts) {
+        if (currentAsset && currentAsset[part]) {
+            currentAsset = currentAsset[part];
+        } else if (currentAsset && currentAsset.children && currentAsset.children[part]) {
+            currentAsset = currentAsset.children[part];
+        }
+        else {
+            return null;
+        }
+    }
+    return currentAsset;
+}
 
 // Function to create the asset tree view
 export function createTreeView(data, parentElement, path = '') {
