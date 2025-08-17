@@ -352,17 +352,14 @@ function renderGenericDetails(asset, assetId, changedKeys = []) {
 
     let keysToRender = [];
     if (isAgenda) {
-        keysToRender = state.detailOrder;
+        keysToRender = [...state.detailOrder];
     } else if (isService) {
-        keysToRender = state.serviceDetailOrder;
-        // Dynamically add derived information systems
+        keysToRender = [...state.serviceDetailOrder];
         keysToRender.push("Agendový informační systém");
     } else if (isInfoSystem) {
-        keysToRender = state.infoSystemDetailOrder;
-        // Dynamically add derived regulated services
+        keysToRender = [...state.infoSystemDetailOrder];
         keysToRender.push("Regulovaná služba");
     } else {
-        // Fallback for other types, dynamically build from existing keys
         keysToRender = state.defaultSupportAssetOrder.filter(k => asset.details && asset.details[k] !== undefined);
     }
 
