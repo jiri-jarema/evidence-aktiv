@@ -502,14 +502,16 @@ function createDetailsForForm(categoryId, existingDetails, detailOrder) {
     const sampleAsset = (category && category.children) ? Object.values(category.children)[0] : null;
 
     for (const key of detailOrder) {
+        let detailCreated = false;
+
         // 1. Use existing data if available
         if (existingDetails && existingDetails[key] !== undefined) {
             detailsForForm[key] = JSON.parse(JSON.stringify(existingDetails[key]));
-            continue;
+            detailCreated = true;
         }
         
-        // 2. Use the structure from a sample asset if available
-        if (sampleAsset && sampleAsset.details && sampleAsset.details[key] !== undefined) {
+        // 2. If no existing data, try to use the structure from a sample asset
+        if (!detailCreated && sampleAsset && sampleAsset.details && sampleAsset.details[key] !== undefined) {
             const template = JSON.parse(JSON.stringify(sampleAsset.details[key]));
             // Reset values to blank
             if (template.value !== undefined) template.value = '';
@@ -528,13 +530,15 @@ function createDetailsForForm(categoryId, existingDetails, detailOrder) {
                 }
             }
             detailsForForm[key] = template;
-            continue;
+            detailCreated = true;
         }
 
-        // 3. If no template, create a default structure for known link types
-        const linkFields = ['Regulované služby', 'Agendy', 'Regulovaná služba', 'Aplikační server', 'Databáze', 'Sítě', 'Server', 'Cil_zalohovani', 'Provozovane_databaze', 'Provozovane_informacni_systemy', 'Informacni_systemy_vyuzivajici_DB', 'Informacni_systemy', 'Agendový informační systém'];
-        if (linkFields.includes(key)) {
-            detailsForForm[key] = { linksTo: [] };
+        // 3. If still no detail created, use the final fallback for known link types
+        if (!detailCreated) {
+            const linkFields = ['Regulované služby', 'Agendy', 'Regulovaná služba', 'Aplikační server', 'Databáze', 'Sítě', 'Server', 'Cil_zalohovani', 'Provozovane_databaze', 'Provozovane_informacni_systemy', 'Informacni_systemy_vyuzivajici_DB', 'Informacni_systemy', 'Agendový informační systém'];
+            if (linkFields.includes(key)) {
+                detailsForForm[key] = { linksTo: [] };
+            }
         }
     }
 
