@@ -20,13 +20,13 @@ export const detailOrder = [
 
 // Nově přidané konstanty pro sjednocení pořadí
 export const serviceDetailOrder = [
-    "Legislativa", "Agendový informační systém", "Agendy"
+    "Legislativa", "Agendy"
 ];
 
 export const infoSystemDetailOrder = [
     "Popis", "Vlastník", "SpravceNeboZastupce", "Uživatelé", "Stav aktiva", "Koncepce",
-    "Přístup", "Nedostupnost", "Klasifikace informací", "Aplikační server", "Databáze",
-    "Sítě", "Regulovaná služba", "Agendy", "Zabezpečení"
+    "Přístup", "Nedostupnost", "Klasifikace informací", "Aplikační server", "Databaze",
+    "Sítě", "Agendy", "Zabezpečení"
 ];
 
 export const defaultSupportAssetOrder = [
@@ -91,10 +91,6 @@ export const reciprocalMap = {
             targetCategoryPath: 'podpurna/children/servery',
             reciprocalField: 'Provozovane_informacni_systemy'
         },
-        'Regulovaná_služba': {
-            targetCategoryPath: 'primarni/children/sluzby',
-            reciprocalField: 'Agendový informační systém'
-        },
         'Sítě': {
             targetCategoryPath: 'podpurna/children/site',
             reciprocalField: 'Informacni_systemy'
@@ -104,10 +100,6 @@ export const reciprocalMap = {
         'Agendy': {
             targetCategoryPath: 'agendy',
             reciprocalField: 'Služby úřadu'
-        },
-        'Agendový_informační_systém': {
-            targetCategoryPath: 'primarni/children/informacni-systemy',
-            reciprocalField: 'Regulovaná služba'
         }
     }
 };

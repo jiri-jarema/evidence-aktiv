@@ -343,6 +343,7 @@ function renderGenericDetails(asset, assetId, changedKeys = []) {
     const detailsGrid = document.createElement('dl');
     detailsGrid.className = 'details-grid';
     const sharedOptions = state.getSharedOptions();
+    const allAssets = state.getAllAssets();
 
     const assetPath = utils.getPathForAsset(assetId);
     const isAgenda = assetPath.startsWith('agendy');
@@ -354,8 +355,12 @@ function renderGenericDetails(asset, assetId, changedKeys = []) {
         keysToRender = state.detailOrder;
     } else if (isService) {
         keysToRender = state.serviceDetailOrder;
+        // Dynamically add derived information systems
+        keysToRender.push("Agendový informační systém");
     } else if (isInfoSystem) {
         keysToRender = state.infoSystemDetailOrder;
+        // Dynamically add derived regulated services
+        keysToRender.push("Regulovaná služba");
     } else {
         // Fallback for other types, dynamically build from existing keys
         keysToRender = state.defaultSupportAssetOrder.filter(k => asset.details && asset.details[k] !== undefined);
@@ -373,7 +378,41 @@ function renderGenericDetails(asset, assetId, changedKeys = []) {
                 dd.classList.add('changed-value');
             }
 
-            if (!detail) {
+            if (isService && key === "Agendový informační systém") {
+                const linkedAgendas = asset.details?.Agendy?.linksTo || [];
+                const infoSystems = new Set();
+                linkedAgendas.forEach(agendaId => {
+                    const agenda = allAssets[agendaId];
+                    const zp = agenda?.details?.['Způsob zpracování']?.value;
+                    if (zp) {
+                        zp.forEach(method => {
+                            if (method.label.includes('agendový informační systém') && method.linksTo) {
+                                method.linksTo.forEach(isId => infoSystems.add(isId));
+                            }
+                        });
+                    }
+                });
+                if (infoSystems.size > 0) {
+                    dd.appendChild(utils.createLinksFragment(Array.from(infoSystems), showAssetDetails));
+                } else {
+                    dd.textContent = '-';
+                }
+            } else if (isInfoSystem && key === "Regulovaná služba") {
+                const linkedAgendas = asset.details?.Agendy?.linksTo || [];
+                const services = new Set();
+                linkedAgendas.forEach(agendaId => {
+                    const agenda = allAssets[agendaId];
+                    const serviceLinks = agenda?.details?.['Služby úřadu']?.linksTo;
+                    if (serviceLinks) {
+                        serviceLinks.forEach(serviceId => services.add(serviceId));
+                    }
+                });
+                if (services.size > 0) {
+                    dd.appendChild(utils.createLinksFragment(Array.from(services), showAssetDetails));
+                } else {
+                    dd.textContent = '-';
+                }
+            } else if (!detail) {
                 dd.textContent = '-';
             } else if (detail.type === 'lawfulness') {
                 dd.textContent = sharedOptions.lawfulness.find(opt => opt.startsWith(detail.value)) || detail.value || '-';
@@ -507,7 +546,7 @@ function createDetailsForForm(categoryId, existingDetails, detailOrder) {
             detailsForForm[key] = JSON.parse(JSON.stringify(existingDetails[key]));
             continue;
         }
-        
+
         // 2. Use the structure from a sample asset if available
         if (sampleAsset && sampleAsset.details && sampleAsset.details[key] !== undefined) {
             const template = JSON.parse(JSON.stringify(sampleAsset.details[key]));
@@ -1097,7 +1136,7 @@ async function saveNewAgenda(odborId) {
 
     const newAgendaId = `${odborId}-${utils.sanitizeForId(newName.toLowerCase())}-${Date.now()}`;
     const newAgendaData = { name: newName, details: {} };
-    
+
     const detailsForForm = createDetailsForForm(odborId, {}, state.detailOrder);
 
     for (const key in detailsForForm) {
@@ -1112,7 +1151,7 @@ async function saveAgendaChanges(assetId) {
     const asset = allAssets[assetId];
     const form = document.getElementById(`form-${assetId}`);
     const changedKeys = [];
-    
+
     const parentId = utils.findParentId(assetId);
     const detailsForForm = createDetailsForForm(parentId, asset.details, state.detailOrder);
     const updatedDetails = {};
@@ -1126,7 +1165,7 @@ async function saveAgendaChanges(assetId) {
     for (const key of state.detailOrder) {
         const originalDetail = asset.details ? asset.details[key] : undefined;
         const newDetailValue = getDetailDataFromForm(assetId, key, detailsForForm[key]);
-        
+
         if (JSON.stringify(originalDetail) !== JSON.stringify(newDetailValue)) {
             updatedDetails[key] = newDetailValue;
             if (!changedKeys.includes(key)) changedKeys.push(key);
@@ -1173,13 +1212,13 @@ async function saveSupportAssetChanges(assetId) {
     const allAssets = state.getAllAssets();
     const asset = allAssets[assetId];
     const form = document.getElementById(`form-${assetId}`);
-    
+
     const newName = form.querySelector(`#input-${assetId}-name`).value.trim();
-    
+
     const parentId = utils.findParentId(assetId);
     const isService = asset.type === 'jednotliva-sluzba';
     const isInfoSystem = utils.getPathForAsset(assetId).startsWith('primarni/children/informacni-systemy');
-    
+
     let order = state.defaultSupportAssetOrder.filter(k => (asset.details && asset.details[k] !== undefined));
     if (isService) order = state.serviceDetailOrder;
     if (isInfoSystem) order = state.infoSystemDetailOrder;
@@ -1258,7 +1297,7 @@ async function saveSupportAssetChanges(assetId) {
         updatedDetails,
         reciprocalLinks
     };
-    
+
     return await api.updateSupportAsset(payload);
 }
 
@@ -1285,7 +1324,7 @@ async function saveNewSupportAsset(categoryId) {
     for (const key in sampleAsset.details) {
         const detail = sampleAsset.details[key];
         const newDetail = { ...detail };
-        
+
         if (detail.linksTo) {
             const selectedItemsContainer = form.querySelector(`#selected-items-new-asset-${categoryId}-${utils.sanitizeForId(key)}`);
             const newLinks = Array.from(selectedItemsContainer.children).map(badge => badge.dataset.id);
@@ -1293,7 +1332,7 @@ async function saveNewSupportAsset(categoryId) {
 
             const assetCategoryPath = Object.keys(state.reciprocalMap).find(p => newAssetPath.includes(p));
             const linkConfig = state.reciprocalMap[assetCategoryPath]?.[key.replace(/ /g, '_')];
-            
+
             if (linkConfig) {
                 newLinks.forEach(targetId => {
                     reciprocalLinks.toAdd.push({
@@ -1308,7 +1347,7 @@ async function saveNewSupportAsset(categoryId) {
         }
         newAssetData.details[key] = newDetail;
     }
-    
+
     const payload = { assetPath: newAssetPath, newAssetData, reciprocalLinks };
     return await api.createNewSupportAsset(payload);
 }
