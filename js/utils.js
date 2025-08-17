@@ -1,112 +1,82 @@
-import { getAllAssets, getParentMap } from './state.js';
+// js/utils.js
+import { state } from './state.js';
 
 /**
- * Sanitizes text to be used as part of an ID.
- * @param {string} text - The text to sanitize.
- * @returns {string} - The sanitized text.
+ * Finds an asset in the data tree using its string path.
+ * e.g., 'primarni-aktiva.children.regulovane-sluzby'
+ * @param {object} data - The root of the data tree.
+ * @param {string} path - The path to the asset.
+ * @returns {object|null} The asset object or null if not found.
  */
-export function sanitizeForId(text) {
-    return text.replace(/[^a-zA-Z0-9-_]/g, '_');
+export function findAssetByPath(data, path) {
+    if (!path) return null;
+    const pathParts = path.split('.children.');
+    let currentAsset = data;
+    for (const part of pathParts) {
+        if (currentAsset && currentAsset[part]) {
+            currentAsset = currentAsset[part];
+        } else if (currentAsset && currentAsset.children && currentAsset.children[part]) {
+            currentAsset = currentAsset.children[part];
+        } else {
+            return null;
+        }
+    }
+    return currentAsset;
 }
 
 /**
- * Flattens the hierarchical asset data into a single object.
- * @param {object} data - The hierarchical data.
- * @returns {object} - The flattened data.
+ * Retrieves a list of options from the global state.
+ * @param {string} key - The key for the options array in state.options.
+ * @returns {Array} The array of options.
  */
-export function flattenData(data) {
-    let flat = {};
+export function getOptions(key) {
+    return state.options[key] || [];
+}
+
+/**
+ * Recursively finds all assets of a specific type in the data tree.
+ * @param {object} data - The data object to search through.
+ * @param {string} type - The asset type to find (e.g., 'is', 'agenda').
+ * @param {string} path - The current path in the recursion.
+ * @returns {Array} An array of objects, each containing the asset and its path.
+ */
+export function getAllAssetsByType(data, type, path = '') {
+    let assets = [];
     for (const key in data) {
-        flat[key] = data[key];
-        if (data[key].children) {
-            Object.assign(flat, flattenData(data[key].children));
+        if (key === 'name' || key === 'details' || key === 'type') continue;
+
+        const currentPath = path ? `${path}.children.${key}` : key;
+        const asset = data[key];
+
+        if (asset.type === type) {
+            assets.push({ asset, path: currentPath });
+        }
+
+        if (asset.children) {
+            assets = assets.concat(getAllAssetsByType(asset.children, type, currentPath));
         }
     }
-    return flat;
+    return assets;
 }
 
 /**
- * Builds a map of child-to-parent relationships.
- * @param {object} data - The hierarchical data.
- * @param {object} map - The map to populate.
- * @param {string|null} [parent=null] - The parent key.
+ * Recursively finds an asset by its unique ID (the object key).
+ * @param {object} data - The data object to search through.
+ * @param {string} id - The ID of the asset to find.
+ * @param {string} path - The current path in the recursion.
+ * @returns {object|null} An object with the asset and its path, or null.
  */
-export function buildParentMap(data, map, parent = null) {
+export function findAssetById(data, id, path = '') {
     for (const key in data) {
-        map[key] = parent;
+        if (key === 'name' || key === 'details' || key === 'type') continue;
+        const currentPath = path ? `${path}.children.${key}` : key;
+        if (key === id) {
+            return { asset: data[key], path: currentPath };
+        }
         if (data[key].children) {
-            buildParentMap(data[key].children, map, key);
+            const found = findAssetById(data[key].children, id, currentPath);
+            if (found) return found;
         }
     }
-}
-
-/**
- * Finds the parent ID of a given child ID.
- * @param {string} childId - The ID of the child.
- * @returns {string|null} - The parent ID.
- */
-export function findParentId(childId) {
-    return getParentMap()[childId];
-}
-
-/**
- * Constructs the database path for a given asset.
- * @param {string} assetId - The ID of the asset.
- * @returns {string} - The database path.
- */
-export function getPathForAsset(assetId) {
-    let path = [];
-    let currentId = assetId;
-    while (currentId) {
-        path.unshift(currentId);
-        currentId = findParentId(currentId);
-    }
-    return path.join('/children/');
-}
-
-/**
- * Retrieves a nested object from a base object using a path string.
- * @param {object} obj - The base object.
- * @param {string} path - The path string (e.g., 'primarni/children/informacni-systemy').
- * @returns {object|null} - The nested object or null if not found.
- */
-export function getObjectByPath(obj, path) {
-    return path.split('/').reduce((acc, part) => {
-        if (part === 'children') {
-            return acc ? acc.children : null;
-        }
-        return acc ? acc[part] : null;
-    }, obj);
-}
-
-/**
- * Creates a document fragment with clickable links for related assets.
- * @param {string|string[]} linksTo - A single ID or an array of IDs to link to.
- * @param {function} clickHandler - The function to call when a link is clicked.
- * @returns {DocumentFragment} - The fragment containing the links.
- */
-export function createLinksFragment(linksTo, clickHandler) {
-    const allAssets = getAllAssets();
-    const fragment = document.createDocumentFragment();
-    
-    // Oprava: Zpracuje prázdný řetězec jako prázdné pole
-    if (!linksTo || linksTo === "") return fragment;
-
-    const links = Array.isArray(linksTo) ? linksTo : [linksTo];
-    links.forEach(linkId => {
-        if (!linkId) return;
-        const linkedAsset = allAssets[linkId];
-        const linkName = (linkedAsset && linkedAsset.name) || linkId;
-        const linkWrapper = document.createElement('div');
-        const link = document.createElement('a');
-        link.textContent = linkName;
-        link.className = 'asset-link';
-        link.onclick = (e) => {
-            e.stopPropagation();
-            clickHandler(linkId, findParentId(linkId));
-        };
-        linkWrapper.appendChild(link);
-        fragment.appendChild(linkWrapper);
-    });
-    return fragment;
+    return null;
 }

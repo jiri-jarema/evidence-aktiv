@@ -1,32 +1,5 @@
 import { state, setState } from './state.js';
-
-// --- Functions previously in utils.js, now moved here to resolve import errors ---
-
-// Function to find an asset by its path
-function findAssetByPath(data, path) {
-    if (!path) return null;
-    const pathParts = path.split('.children.');
-    let currentAsset = data;
-    for (const part of pathParts) {
-        if (currentAsset && currentAsset[part]) {
-            currentAsset = currentAsset[part];
-        } else if (currentAsset && currentAsset.children && currentAsset.children[part]) {
-            currentAsset = currentAsset.children[part];
-        }
-        else {
-            return null;
-        }
-    }
-    return currentAsset;
-}
-
-// Function to get options for select/checkbox lists
-function getOptions(key) {
-    return state.options[key] || [];
-}
-
-// --- End of moved functions ---
-
+import { findAssetByPath, getOptions, getAllAssetsByType, findAssetById } from './utils.js';
 
 // Function to create the asset tree view
 export function createTreeView(data, parentElement, path = '') {
@@ -553,41 +526,4 @@ export function getFormData(form) {
 
     data.details = newDetails;
     return data;
-}
-
-
-// Helper function to find an asset by its ID
-function findAssetById(data, id, path = '') {
-    for (const key in data) {
-        if (key === 'name' || key === 'details' || key === 'type') continue;
-        const currentPath = path ? `${path}.children.${key}` : key;
-        if (key === id) {
-            return { asset: data[key], path: currentPath };
-        }
-        if (data[key].children) {
-            const found = findAssetById(data[key].children, id, currentPath);
-            if (found) return found;
-        }
-    }
-    return null;
-}
-
-// Helper to get all assets of a specific type
-function getAllAssetsByType(data, type, path = '') {
-    let assets = [];
-    for (const key in data) {
-        if (key === 'name' || key === 'details' || key === 'type') continue;
-
-        const currentPath = path ? `${path}.children.${key}` : key;
-        const asset = data[key];
-
-        if (asset.type === type) {
-            assets.push({ asset, path: currentPath });
-        }
-
-        if (asset.children) {
-            assets = assets.concat(getAllAssetsByType(asset.children, type, currentPath));
-        }
-    }
-    return assets;
 }
