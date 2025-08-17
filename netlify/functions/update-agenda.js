@@ -35,25 +35,25 @@ async function verifyUser(authorization) {
 }
 
 // Funkce pro rekurzivní nalezení cesty k ID v daném uzlu
-async function findFullPathToAsset(assetId) {
-    const snapshot = await db.ref().once('value');
+async function findPath(rootRef, targetId) {
+    const snapshot = await rootRef.once('value');
     const data = snapshot.val();
-
-    function search(currentPath, node) {
-        if (!node) return null;
-        for (const key in node) {
-            if (key === assetId) {
+    
+    function search(currentPath, currentNode) {
+        if (!currentNode) return null;
+        for (const key in currentNode) {
+            if (key === targetId) {
                 return `${currentPath}/${key}`;
             }
-            if (typeof node[key] === 'object' && node[key] !== null) {
-                const result = search(`${currentPath}/${key}`, node[key]);
+            if (typeof currentNode[key] === 'object' && key === 'children') {
+                const result = search(`${currentPath}/${key}`, currentNode[key]);
                 if (result) return result;
             }
         }
         return null;
     }
-    const result = search('', data);
-    return result ? result.substring(1) : null; // Remove leading '/'
+    
+    return search('', data);
 }
 
 
@@ -105,9 +105,9 @@ exports.handler = async function(event, context) {
 
         if (serviceLinks) {
             for (const serviceId of (serviceLinks.toAdd || [])) {
-                const servicePath = await findFullPathToAsset(serviceId);
+                const servicePath = await findPath(db.ref('primarni/children/sluzby'), serviceId);
                 if (servicePath) {
-                    const serviceAgendaLinksPath = `${servicePath}/details/Agendy/linksTo`;
+                    const serviceAgendaLinksPath = `${servicePath.substring(1)}/details/Agendy/linksTo`;
                     const snapshot = await db.ref(serviceAgendaLinksPath).once('value');
                     let links = snapshot.val();
                     if (!Array.isArray(links)) links = []; // Oprava
@@ -116,9 +116,9 @@ exports.handler = async function(event, context) {
                 }
             }
             for (const serviceId of (serviceLinks.toRemove || [])) {
-                const servicePath = await findFullPathToAsset(serviceId);
+                const servicePath = await findPath(db.ref('primarni/children/sluzby'), serviceId);
                 if (servicePath) {
-                     const serviceAgendaLinksPath = `${servicePath}/details/Agendy/linksTo`;
+                     const serviceAgendaLinksPath = `${servicePath.substring(1)}/details/Agendy/linksTo`;
                      const snapshot = await db.ref(serviceAgendaLinksPath).once('value');
                      let links = snapshot.val();
                      if (!Array.isArray(links)) links = []; // Oprava

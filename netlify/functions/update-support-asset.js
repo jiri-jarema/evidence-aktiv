@@ -95,7 +95,7 @@ exports.handler = async function(event, context) {
             for (const agendaId of (reciprocalLinks.agendasToAdd || [])) {
                  const targetAgendaPath = await findAgendaPath(agendaId);
                  if (targetAgendaPath) {
-                     const agendaServiceLinksPath = `${targetAgendaPath}/details/Regulované služby/linksTo`;
+                     const agendaServiceLinksPath = `${targetAgendaPath}/details/Služby úřadu/linksTo`;
                      const snapshot = await db.ref(agendaServiceLinksPath).once('value');
                      let links = snapshot.val();
                      if (!Array.isArray(links)) links = []; // Oprava
@@ -106,7 +106,7 @@ exports.handler = async function(event, context) {
              for (const agendaId of (reciprocalLinks.agendasToRemove || [])) {
                  const targetAgendaPath = await findAgendaPath(agendaId);
                  if (targetAgendaPath) {
-                     const agendaServiceLinksPath = `${targetAgendaPath}/details/Regulované služby/linksTo`;
+                     const agendaServiceLinksPath = `${targetAgendaPath}/details/Služby úřadu/linksTo`;
                      const snapshot = await db.ref(agendaServiceLinksPath).once('value');
                      let links = snapshot.val() || [];
                      if (!Array.isArray(links)) links = []; // Oprava
