@@ -39,6 +39,10 @@ async function findServicePath(serviceId) {
     const snapshot = await sluzbyRef.once('value');
     const serviceCategories = snapshot.val();
     
+    if (!serviceCategories) {
+        return null;
+    }
+
     for (const categoryId in serviceCategories) {
         const category = serviceCategories[categoryId];
         if (category.children && category.children[serviceId]) {
