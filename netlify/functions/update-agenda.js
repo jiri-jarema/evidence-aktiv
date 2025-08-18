@@ -42,19 +42,20 @@ async function findPath(rootRef, targetId) {
     function search(currentPath, currentNode) {
         if (!currentNode) return null;
         for (const key in currentNode) {
+            const newPath = currentPath ? `${currentPath}/${key}` : key;
             if (key === targetId) {
-                return `${currentPath}/${key}`;
+                return newPath;
             }
-            if (typeof currentNode[key] === 'object' && key === 'children') {
-                const result = search(`${currentPath}/${key}/children`, currentNode[key].children);
+            // Hledání vnořeně v 'children'
+            if (typeof currentNode[key] === 'object' && currentNode[key] && currentNode[key].children) {
+                const result = search(`${newPath}/children`, currentNode[key].children);
                 if (result) return result;
             }
         }
         return null;
     }
     
-    const resultPath = search('', data);
-    return resultPath ? resultPath.substring(1) : null; // Odebrání úvodního lomítka
+    return search('', data);
 }
 
 
