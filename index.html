@@ -8,11 +8,8 @@
     
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <!-- Firebase App (Core) SDK -->
     <script src="https://www.gstatic.com/firebasejs/8.6.8/firebase-app.js"></script>
-    <!-- Firebase Authentication SDK -->
     <script src="https://www.gstatic.com/firebasejs/8.6.8/firebase-auth.js"></script>
-    <!-- Firebase Realtime Database SDK -->
     <script src="https://www.gstatic.com/firebasejs/8.6.8/firebase-database.js"></script>
 
     <style>
@@ -54,7 +51,6 @@
 </head>
 <body class="bg-gray-100 text-gray-800">
 
-    <!-- Login Screen -->
     <div id="login-screen" class="flex items-center justify-center h-screen bg-gray-200">
         <div class="w-full max-w-md p-8 space-y-6 bg-white rounded-lg shadow-md">
             <h2 class="text-2xl font-bold text-center text-gray-700">Přihlášení do Evidence aktiv</h2>
@@ -75,8 +71,10 @@
         </div>
     </div>
 
-    <!-- Main App Container (hidden by default) -->
-    <div id="app-container" class="hidden flex-col h-screen">
+    <div id="app-container" class="hidden flex-col h-screen relative">
+        <div id="loading-overlay" class="hidden absolute inset-0 bg-white bg-opacity-75 z-50 flex items-center justify-center">
+            <div class="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-blue-500"></div>
+        </div>
         <header class="bg-white shadow-md w-full p-4 flex justify-between items-center">
             <h1 class="text-2xl font-bold text-gray-700">Evidence aktiv Městského úřadu Vítkov</h1>
             <div>
@@ -104,7 +102,6 @@
         </div>
     </div>
 
-    <!-- Main application script -->
     <script type="module" src="js/main.js"></script>
 </body>
 </html>

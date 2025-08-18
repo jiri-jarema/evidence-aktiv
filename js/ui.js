@@ -4,6 +4,21 @@ import * as utils from './utils.js';
 import * as api from './api.js';
 import { reloadDataAndRebuildUI } from './auth.js';
 
+const loadingOverlay = document.getElementById('loading-overlay');
+
+function showLoader() {
+    if (loadingOverlay) {
+        loadingOverlay.classList.remove('hidden');
+    }
+}
+
+function hideLoader() {
+    if (loadingOverlay) {
+        loadingOverlay.classList.add('hidden');
+    }
+}
+
+
 /**
  * Displays a custom confirmation modal.
  * @param {string} message - The message to display in the modal.
@@ -38,9 +53,17 @@ function showConfirmationModal(message, onConfirm) {
     const confirmButton = document.createElement('button');
     confirmButton.textContent = 'Potvrdit smazání';
     confirmButton.className = 'px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700';
-    confirmButton.onclick = () => {
-        onConfirm();
+    confirmButton.onclick = async () => {
         modalOverlay.remove();
+        showLoader();
+        try {
+            await onConfirm();
+        } catch (error) {
+            console.error("Confirmation action failed:", error);
+            alert("Akce se nezdařila.");
+        } finally {
+            hideLoader();
+        }
     };
 
     buttonContainer.appendChild(cancelButton);
@@ -623,12 +646,20 @@ function renderNewAgendaForm(odborId) {
             alert('Název agendy nesmí být prázdný.');
             return;
         }
-        const success = await api.createNewAgenda(odborId);
-        if (success) {
-            const reloaded = await reloadDataAndRebuildUI();
-            if (reloaded) {
-                showCategoryContent(odborId);
+        showLoader();
+        try {
+            const success = await saveNewAgenda(odborId);
+            if (success) {
+                const reloaded = await reloadDataAndRebuildUI();
+                if (reloaded) {
+                    showCategoryContent(odborId);
+                }
             }
+        } catch (error) {
+            console.error("Error creating new agenda:", error);
+            alert("Nepodařilo se vytvořit novou agendu.");
+        } finally {
+            hideLoader();
         }
     };
 
@@ -753,12 +784,20 @@ function renderEditForm(assetId) {
     saveButton.className = 'px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700';
     saveButton.onclick = async (e) => {
         e.preventDefault();
-        const { changedKeys, success } = await saveAgendaChanges(assetId);
-        if (success) {
-            const reloaded = await reloadDataAndRebuildUI();
-            if (reloaded) {
-                showAssetDetails(assetId, utils.findParentId(assetId), changedKeys);
+        showLoader();
+        try {
+            const { changedKeys, success } = await saveAgendaChanges(assetId);
+            if (success) {
+                const reloaded = await reloadDataAndRebuildUI();
+                if (reloaded) {
+                    showAssetDetails(assetId, utils.findParentId(assetId), changedKeys);
+                }
             }
+        } catch (error) {
+            console.error("Error saving agenda:", error);
+            alert("Při ukládání došlo k chybě.");
+        } finally {
+            hideLoader();
         }
     };
 
@@ -827,12 +866,20 @@ function renderSupportAssetEditForm(assetId) {
     saveButton.className = 'px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700';
     saveButton.onclick = async (e) => {
         e.preventDefault();
-        const success = await saveSupportAssetChanges(assetId);
-        if (success) {
-            const reloaded = await reloadDataAndRebuildUI();
-            if (reloaded) {
-                showAssetDetails(assetId, utils.findParentId(assetId));
+        showLoader();
+        try {
+            const success = await saveSupportAssetChanges(assetId);
+            if (success) {
+                const reloaded = await reloadDataAndRebuildUI();
+                if (reloaded) {
+                    showAssetDetails(assetId, utils.findParentId(assetId));
+                }
             }
+        } catch (error) {
+            console.error("Error saving support asset:", error);
+            alert("Při ukládání došlo k chybě.");
+        } finally {
+            hideLoader();
         }
     };
 
@@ -1449,11 +1496,14 @@ document.getElementById('nav-btn-users')?.classList.add('active');
     const role = (prompt('Role (administrator/garant/zamestnanec/user):', 'user') || '').trim();
     const odbor = (prompt('Odbor (volitelné):', '') || '').trim();
     if (!email && !uid) return alert('Zadejte alespoň e-mail nebo UID.');
+    showLoader();
     try {
       await api.upsertUser({ uid: uid || undefined, email: email || undefined, role, odbor: odbor || undefined });
       await refresh();
     } catch (e) {
       alert(e.message);
+    } finally {
+        hideLoader();
     }
   };
   actions.appendChild(addBtn);
@@ -1519,11 +1569,14 @@ document.getElementById('nav-btn-users')?.classList.add('active');
           const newRole = prompt('Nová role:', (info && info.role) || '');
           const newOdbor = prompt('Nový odbor:', (info && info.odbor) || '');
           if (newEmail !== null && newRole !== null) {
+            showLoader();
             try {
               await api.upsertUser({ uid, email: newEmail, role: newRole, odbor: newOdbor });
               await refresh();
             } catch (e) {
               alert(e.message);
+            } finally {
+                hideLoader();
             }
           }
         };
@@ -1532,7 +1585,12 @@ document.getElementById('nav-btn-users')?.classList.add('active');
         deleteBtn.textContent = 'Smazat';
         deleteBtn.onclick = async () => {
             showConfirmationModal(`Opravdu smazat tohoto uživatele z /users?`, async () => {
-                 try { await api.deleteUserByUid(uid); await refresh(); } catch (e) { alert(e.message); }
+                 try {
+                     await api.deleteUserByUid(uid);
+                     await refresh();
+                 } catch (e) {
+                     alert(e.message);
+                 }
             });
         };
         tdActions.appendChild(editBtn);
