@@ -1,6 +1,61 @@
-import { initAuth } from './auth.js';
+// js/main.js
+import { initializeApp } from './firebase.js';
+import { setupAuth } from './auth.js';
+import { state } from './state.js';
+import { getData } from './api.js';
+import { renderTree, findItemById, flattenServices } from './dom.js';
+import * as uiFunctions from './ui.js';
 
-// Initialize the application by setting up authentication listener
-document.addEventListener('DOMContentLoaded', () => {
-    initAuth();
+// Zpřístupnění všech funkcí z ui.js globálně, aby je bylo možné volat z HTML
+Object.keys(uiFunctions).forEach(key => {
+    window[key] = uiFunctions[key];
 });
+
+document.addEventListener('DOMContentLoaded', () => {
+    initializeApp();
+    setupAuth(onLogin, onLogout);
+});
+
+function onLogin(user) {
+    document.getElementById('auth-container').style.display = 'none';
+    document.getElementById('app-container').style.display = 'block';
+    document.getElementById('user-email').textContent = user.email;
+
+    if (state.userRole === 'administrator') {
+        document.getElementById('admin-panel').style.display = 'block';
+    }
+
+    loadInitialData();
+}
+
+function onLogout() {
+    document.getElementById('auth-container').style.display = 'block';
+    document.getElementById('app-container').style.display = 'none';
+    document.getElementById('user-email').textContent = '';
+    document.getElementById('admin-panel').style.display = 'none';
+}
+
+function loadInitialData() {
+    uiFunctions.showLoading();
+    getData()
+        .then(data => {
+            state.data = data;
+            
+            // Zpracování a uložení agend a služeb do stavu pro snadnější přístup
+            state.agendas = data.agendy ? Object.entries(data.agendy.children).flatMap(([_, odbor]) => 
+                Object.entries(odbor.children).map(([id, agenda]) => ({ id, ...agenda }))
+            ) : [];
+            
+            const servicesNode = findItemById(data, 'sluzby');
+            if (servicesNode) {
+                state.services = flattenServices(servicesNode);
+            }
+
+            renderTree();
+        })
+        .catch(error => {
+            console.error("Chyba při načítání dat:", error);
+            alert("Nepodařilo se načíst data aplikace.");
+        })
+        .finally(uiFunctions.hideLoading);
+}
