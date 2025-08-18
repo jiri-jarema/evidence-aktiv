@@ -399,7 +399,7 @@ function renderGenericDetails(asset, assetId, changedKeys = []) {
                 const services = new Set();
                 linkedAgendas.forEach(agendaId => {
                     const agenda = allAssets[agendaId];
-                    const serviceLinks = agenda?.details?.['Služby úřadu']?.linksTo;
+                    const serviceLinks = agenda?.details?.['Regulované služby']?.linksTo;
                     if (serviceLinks) {
                         serviceLinks.forEach(serviceId => services.add(serviceId));
                     }
@@ -568,7 +568,7 @@ function createDetailsForForm(categoryId, existingDetails, detailOrder) {
         }
 
         // 3. If no template, create a default structure for known link types
-        const linkFields = ['Služby úřadu', 'Agendy', 'Regulovaná služba', 'Aplikační server', 'Databáze', 'Sítě', 'Server', 'Cil_zalohovani', 'Provozovane_databaze', 'Provozovane_informacni_systemy', 'Informacni_systemy_vyuzivajici_DB', 'Informacni_systemy', 'Agendový informační systém'];
+        const linkFields = ['Regulované služby', 'Agendy', 'Regulovaná služba', 'Aplikační server', 'Databáze', 'Sítě', 'Server', 'Cil_zalohovani', 'Provozovane_databaze', 'Provozovane_informacni_systemy', 'Informacni_systemy_vyuzivajici_DB', 'Informacni_systemy', 'Agendový informační systém'];
         if (linkFields.includes(key.replace(/_/g, ' '))) {
             detailsForForm[key] = { linksTo: [] };
         }
@@ -1182,8 +1182,8 @@ async function saveAgendaChanges(assetId) {
         const linksToAdd = newLinks.filter(id => !originalLinks.includes(id));
         const linksToRemove = originalLinks.filter(id => !newLinks.includes(id));
 
-        const originalServiceLinks = asset.details?.['Služby úřadu']?.linksTo || [];
-        const newServiceLinks = updatedDetails['Služby úřadu']?.linksTo || [];
+        const originalServiceLinks = asset.details?.['Regulované služby']?.linksTo || [];
+        const newServiceLinks = updatedDetails['Regulované služby']?.linksTo || [];
         const serviceLinksToAdd = newServiceLinks.filter(id => !originalServiceLinks.includes(id));
         const serviceLinksToRemove = originalServiceLinks.filter(id => !newServiceLinks.includes(id));
 
@@ -1254,7 +1254,7 @@ async function saveSupportAssetChanges(assetId) {
                         const toAdd = newLinks.filter(id => !originalLinks.includes(id));
                         const toRemove = originalLinks.filter(id => !newLinks.includes(id));
 
-                        if (linkConfig.reciprocalField === 'Služby úřadu') { // Vazba Služba -> Agenda
+                        if (linkConfig.reciprocalField === 'Regulované služby') { // Vazba Služba -> Agenda
                             reciprocalLinks.agendasToAdd.push(...toAdd);
                             reciprocalLinks.agendasToRemove.push(...toRemove);
                         } else { // Ostatní vazby

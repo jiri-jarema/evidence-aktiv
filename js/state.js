@@ -15,7 +15,7 @@ export const detailOrder = [
     "Lhůty pro výmaz", "Zpracovatel", "Jmenný seznam oprávněných osob",
     "Kategorie příjemců osobních údajů", "Propojení na jiné správce nebo zpracovatele",
     "Předávání osobních údajů do třetí země", "Zabezpečení zpracování - elektronické",
-    "Zabezpečení zpracování - analogové", "Služby úřadu"
+    "Zabezpečení zpracování - analogové", "Regulované služby"
 ];
 
 // Nově přidané konstanty pro sjednocení pořadí
@@ -39,7 +39,7 @@ export const defaultSupportAssetOrder = [
 
 export const reciprocalMap = {
     'agendy': {
-        'Služby_úřadu': {
+        'Regulované_služby': {
             targetCategoryPath: 'primarni/children/sluzby',
             reciprocalField: 'Agendy'
         }
@@ -99,7 +99,7 @@ export const reciprocalMap = {
     'primarni/children/sluzby': {
         'Agendy': {
             targetCategoryPath: 'agendy',
-            reciprocalField: 'Služby úřadu'
+            reciprocalField: 'Regulované služby'
         }
     }
 };
