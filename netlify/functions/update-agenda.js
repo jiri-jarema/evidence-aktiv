@@ -34,28 +34,19 @@ async function verifyUser(authorization) {
     }
 }
 
-// Funkce pro rekurzivní nalezení cesty k ID v daném uzlu
-async function findPath(rootRef, targetId) {
-    const snapshot = await rootRef.once('value');
-    const data = snapshot.val();
+// Opravená funkce pro nalezení cesty k regulované službě
+async function findServicePath(serviceId) {
+    const sluzbyRef = db.ref('primarni/children/sluzby/children');
+    const snapshot = await sluzbyRef.once('value');
+    const serviceCategories = snapshot.val();
     
-    function search(currentPath, currentNode) {
-        if (!currentNode) return null;
-        for (const key in currentNode) {
-            const newPath = currentPath ? `${currentPath}/${key}` : key;
-            if (key === targetId) {
-                return newPath;
-            }
-            // Hledání vnořeně v 'children'
-            if (typeof currentNode[key] === 'object' && currentNode[key] && currentNode[key].children) {
-                const result = search(`${newPath}/children`, currentNode[key].children);
-                if (result) return result;
-            }
+    for (const categoryId in serviceCategories) {
+        const category = serviceCategories[categoryId];
+        if (category.children && category.children[serviceId]) {
+            return `${categoryId}/children/${serviceId}`;
         }
-        return null;
     }
-    
-    return search('', data);
+    return null;
 }
 
 
@@ -87,11 +78,12 @@ exports.handler = async function(event, context) {
         }
         updates[`${agendaPath}/details`] = updatedAgendaDetails;
         
+        // Zpracování vazeb na informační systémy
         for (const systemId of (linksToAdd || [])) {
             const systemLinksPath = `primarni/children/informacni-systemy/children/${systemId}/details/Agendy/linksTo`;
             const snapshot = await db.ref(systemLinksPath).once('value');
             let links = snapshot.val();
-            if (!Array.isArray(links)) links = []; // Oprava pro "" nebo null
+            if (!Array.isArray(links)) links = [];
             if (!links.includes(agendaId)) links.push(agendaId);
             updates[systemLinksPath] = links;
         }
@@ -100,16 +92,17 @@ exports.handler = async function(event, context) {
             const systemLinksPath = `primarni/children/informacni-systemy/children/${systemId}/details/Agendy/linksTo`;
             const snapshot = await db.ref(systemLinksPath).once('value');
             let links = snapshot.val();
-            if (!Array.isArray(links)) links = []; // Oprava
+            if (!Array.isArray(links)) links = [];
             const filteredLinks = links.filter(id => id !== agendaId);
-            updates[systemLinksPath] = filteredLinks.length > 0 ? filteredLinks : ""; // Oprava na ""
+            updates[systemLinksPath] = filteredLinks.length > 0 ? filteredLinks : "";
         }
 
+        // Zpracování vazeb na regulované služby
         if (serviceLinks) {
             for (const serviceId of (serviceLinks.toAdd || [])) {
-                const serviceRelativePath = await findPath(db.ref('primarni/children/sluzby'), serviceId);
+                const serviceRelativePath = await findServicePath(serviceId);
                 if (serviceRelativePath) {
-                     const serviceAgendaLinksPath = `primarni/children/sluzby/${serviceRelativePath}/details/Agendy/linksTo`;
+                     const serviceAgendaLinksPath = `primarni/children/sluzby/children/${serviceRelativePath}/details/Agendy/linksTo`;
                      const snapshot = await db.ref(serviceAgendaLinksPath).once('value');
                      let links = snapshot.val();
                      if (!Array.isArray(links)) links = []; 
@@ -118,9 +111,9 @@ exports.handler = async function(event, context) {
                 }
             }
             for (const serviceId of (serviceLinks.toRemove || [])) {
-                const serviceRelativePath = await findPath(db.ref('primarni/children/sluzby'), serviceId);
+                const serviceRelativePath = await findServicePath(serviceId);
                 if (serviceRelativePath) {
-                     const serviceAgendaLinksPath = `primarni/children/sluzby/${serviceRelativePath}/details/Agendy/linksTo`;
+                     const serviceAgendaLinksPath = `primarni/children/sluzby/children/${serviceRelativePath}/details/Agendy/linksTo`;
                      const snapshot = await db.ref(serviceAgendaLinksPath).once('value');
                      let links = snapshot.val();
                      if (!Array.isArray(links)) links = []; 
