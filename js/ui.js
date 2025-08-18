@@ -558,7 +558,7 @@ function createDetailsForForm(categoryId, existingDetails, detailOrder) {
     const detailsForForm = {};
 
     const sampleAsset = (category && category.children) ? Object.values(category.children)[0] : null;
-    
+
     // Fallback default structure for a new agenda, in case the category is empty
     const defaultAgendaStructure = {
         'Lhůty pro výmaz': { type: 'dictionary', value: { 'skartační lhůta': '', 'spisový znak': '', 'ukončení zpracování': '' } },
@@ -615,7 +615,6 @@ function createDetailsForForm(categoryId, existingDetails, detailOrder) {
 
     return detailsForForm;
 }
-
 
 function renderNewAgendaForm(odborId) {
     dom.assetDetailContainer.innerHTML = '';
