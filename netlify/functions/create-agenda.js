@@ -104,7 +104,7 @@ exports.handler = async function(event, context) {
         };
 
     } catch (err) {
-        console.error("Error creating agenda:", err);
+        console.error("Chyba při vytváření nové agendy:", err);
         return {
             statusCode: 500,
             body: JSON.stringify({ error: 'Failed to create agenda.' }),
