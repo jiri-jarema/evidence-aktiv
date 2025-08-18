@@ -662,6 +662,61 @@ function renderNewAgendaForm(odborId) {
     form.appendChild(formElements);
     dom.assetDetailContainer.appendChild(form);
 
+    // Initialize AIS dropdown logic
+    const zpDetail = emptyDetails["Způsob zpracování"];
+    if (zpDetail && zpDetail.value) {
+        const aisMethod = zpDetail.value.find(m => m.label.includes("agendový informační systém"));
+        if (aisMethod) {
+            const linkedSystemsContainer = document.getElementById(`linked-systems-new-agenda`);
+            const selectEl = document.getElementById(`is-select-new-agenda`);
+            const addButton = selectEl.nextElementSibling;
+            const assetData = state.getAssetData();
+
+            const addLinkedSystem = (container, systemId, systemName) => {
+                const systemDiv = document.createElement('div');
+                systemDiv.className = 'flex items-center justify-between p-1';
+                systemDiv.dataset.systemId = systemId;
+                const nameSpan = document.createElement('span');
+                nameSpan.textContent = systemName;
+                const removeButton = document.createElement('button');
+                removeButton.textContent = 'Odebrat';
+                removeButton.className = 'px-2 py-0.5 bg-red-500 text-white text-xs rounded hover:bg-red-600';
+                removeButton.type = 'button';
+                removeButton.onclick = () => {
+                    systemDiv.remove();
+                    updateAddSystemDropdown();
+                };
+                systemDiv.appendChild(nameSpan);
+                systemDiv.appendChild(removeButton);
+                container.appendChild(systemDiv);
+            };
+
+            const updateAddSystemDropdown = () => {
+                const currentlyLinkedIds = Array.from(linkedSystemsContainer.children).map(div => div.dataset.systemId);
+                selectEl.innerHTML = '<option value="">Vyberte systém...</option>';
+                const allSystems = assetData.primarni.children['informacni-systemy'].children;
+                for (const systemId in allSystems) {
+                    if (!currentlyLinkedIds.includes(systemId)) {
+                        const option = document.createElement('option');
+                        option.value = systemId;
+                        option.textContent = allSystems[systemId].name;
+                        selectEl.appendChild(option);
+                    }
+                }
+            };
+
+            addButton.onclick = () => {
+                const selectedId = selectEl.value;
+                if (!selectedId) return;
+                const selectedAsset = allAssets[selectedId];
+                addLinkedSystem(linkedSystemsContainer, selectedId, selectedAsset.name);
+                updateAddSystemDropdown();
+            };
+            
+            updateAddSystemDropdown();
+        }
+    }
+
     const buttonContainer = document.createElement('div');
     buttonContainer.className = 'mt-6 flex justify-end space-x-4 col-span-2';
     const saveButton = document.createElement('button');
