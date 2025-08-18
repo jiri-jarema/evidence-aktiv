@@ -10,12 +10,12 @@ let parentMap = {};
 
 // Constants
 export const detailOrder = [
-    "Garant", "Účel zpracování", "Zákonnost zpracování", "Legislativa", "Způsob zpracování",
+    "Garant", "Účel zpracování", "Zákonnost zpracování", "Legislativa", "Regulované služby", "Způsob zpracování",
     "Zdroje osobních údajů", "Kategorie osobních údajů", "Zvláštní kategorie osobních údajů",
     "Lhůty pro výmaz", "Zpracovatel", "Jmenný seznam oprávněných osob",
     "Kategorie příjemců osobních údajů", "Propojení na jiné správce nebo zpracovatele",
     "Předávání osobních údajů do třetí země", "Zabezpečení zpracování - elektronické",
-    "Zabezpečení zpracování - analogové", "Regulované služby"
+    "Zabezpečení zpracování - analogové"
 ];
 
 // Nově přidané konstanty pro sjednocení pořadí
