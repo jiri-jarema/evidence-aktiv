@@ -46,14 +46,15 @@ async function findPath(rootRef, targetId) {
                 return `${currentPath}/${key}`;
             }
             if (typeof currentNode[key] === 'object' && key === 'children') {
-                const result = search(`${currentPath}/${key}`, currentNode[key]);
+                const result = search(`${currentPath}/${key}/children`, currentNode[key].children);
                 if (result) return result;
             }
         }
         return null;
     }
     
-    return search('', data);
+    const resultPath = search('', data);
+    return resultPath ? resultPath.substring(1) : null; // Odebrání úvodního lomítka
 }
 
 
@@ -105,25 +106,25 @@ exports.handler = async function(event, context) {
 
         if (serviceLinks) {
             for (const serviceId of (serviceLinks.toAdd || [])) {
-                const servicePath = await findPath(db.ref('primarni/children/sluzby'), serviceId);
-                if (servicePath) {
-                    const serviceAgendaLinksPath = `${servicePath.substring(1)}/details/Agendy/linksTo`;
-                    const snapshot = await db.ref(serviceAgendaLinksPath).once('value');
-                    let links = snapshot.val();
-                    if (!Array.isArray(links)) links = []; // Oprava
-                    if (!links.includes(agendaId)) links.push(agendaId);
-                    updates[serviceAgendaLinksPath] = links;
+                const serviceRelativePath = await findPath(db.ref('primarni/children/sluzby'), serviceId);
+                if (serviceRelativePath) {
+                     const serviceAgendaLinksPath = `primarni/children/sluzby/${serviceRelativePath}/details/Agendy/linksTo`;
+                     const snapshot = await db.ref(serviceAgendaLinksPath).once('value');
+                     let links = snapshot.val();
+                     if (!Array.isArray(links)) links = []; 
+                     if (!links.includes(agendaId)) links.push(agendaId);
+                     updates[serviceAgendaLinksPath] = links;
                 }
             }
             for (const serviceId of (serviceLinks.toRemove || [])) {
-                const servicePath = await findPath(db.ref('primarni/children/sluzby'), serviceId);
-                if (servicePath) {
-                     const serviceAgendaLinksPath = `${servicePath.substring(1)}/details/Agendy/linksTo`;
+                const serviceRelativePath = await findPath(db.ref('primarni/children/sluzby'), serviceId);
+                if (serviceRelativePath) {
+                     const serviceAgendaLinksPath = `primarni/children/sluzby/${serviceRelativePath}/details/Agendy/linksTo`;
                      const snapshot = await db.ref(serviceAgendaLinksPath).once('value');
                      let links = snapshot.val();
-                     if (!Array.isArray(links)) links = []; // Oprava
+                     if (!Array.isArray(links)) links = []; 
                      const filteredLinks = links.filter(id => id !== agendaId);
-                     updates[serviceAgendaLinksPath] = filteredLinks.length > 0 ? filteredLinks : ""; // Oprava na ""
+                     updates[serviceAgendaLinksPath] = filteredLinks.length > 0 ? filteredLinks : ""; 
                 }
             }
         }
