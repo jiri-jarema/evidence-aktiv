@@ -628,6 +628,7 @@ function createDetailsForForm(categoryId, existingDetails, detailOrder) {
     return detailsForForm;
 }
 
+
 function renderNewAgendaForm(odborId) {
     dom.assetDetailContainer.innerHTML = '';
     const allAssets = state.getAllAssets();
@@ -1163,9 +1164,14 @@ function renderLinkSelector(container, assetId, key, detail, context = {}) {
     const currentLinks = Array.isArray(detail.linksTo) ? detail.linksTo : [];
 
     const updateDropdown = (selectEl, currentSelection) => {
-        let assetCategoryPath = Object.keys(state.reciprocalMap).find(p => assetPath.startsWith(p));
-        if (assetPath.startsWith('agendy')) assetCategoryPath = 'agendy';
-        if (asset.type === 'jednotliva-sluzba') assetCategoryPath = 'primarni/children/sluzby';
+        let assetCategoryPath;
+        if (context.isNewAgenda) {
+            assetCategoryPath = 'agendy';
+        } else {
+            assetCategoryPath = Object.keys(state.reciprocalMap).find(p => assetPath.startsWith(p));
+            if (assetPath.startsWith('agendy')) assetCategoryPath = 'agendy';
+            if (asset.type === 'jednotliva-sluzba') assetCategoryPath = 'primarni/children/sluzby';
+        }
 
         if (!assetCategoryPath) {
              console.warn(`No reciprocalMap config found for asset path: ${assetPath}`);
@@ -1269,7 +1275,20 @@ async function saveNewAgenda(odborId) {
         newAgendaData.details[key] = getDetailDataFromForm('new-agenda', key, detailsForForm[key]);
     }
 
-    return await api.createNewAgenda(odborId, newAgendaId, newAgendaData);
+    // Gather links for reciprocal updates
+    const serviceLinks = newAgendaData.details['Regulované služby']?.linksTo || [];
+    const aisMethod = newAgendaData.details['Způsob zpracování']?.value.find(m => m.label.includes("agendový informační systém"));
+    const infoSystemLinks = aisMethod?.linksTo || [];
+
+    const payload = {
+        odborId,
+        newAgendaId,
+        newAgendaData,
+        serviceLinks,
+        infoSystemLinks
+    };
+
+    return await api.createNewAgenda(payload);
 }
 
 async function saveAgendaChanges(assetId) {

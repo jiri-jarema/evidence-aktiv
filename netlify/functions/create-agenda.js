@@ -14,7 +14,6 @@ if (!admin.apps.length) {
 
 const db = admin.database();
 
-// Pomocná funkce pro ověření uživatele a jeho role
 async function verifyUser(authorization) {
     if (!authorization || !authorization.startsWith('Bearer ')) {
         return { error: { statusCode: 401, body: 'Unauthorized: Missing token' } };
@@ -35,30 +34,69 @@ async function verifyUser(authorization) {
     }
 }
 
+async function findServicePath(serviceId) {
+    const sluzbyRef = db.ref('primarni/children/sluzby/children');
+    const snapshot = await sluzbyRef.once('value');
+    const serviceCategories = snapshot.val();
+    
+    for (const categoryId in serviceCategories) {
+        const category = serviceCategories[categoryId];
+        if (category.children && category.children[serviceId]) {
+            return `${categoryId}/children/${serviceId}`;
+        }
+    }
+    return null;
+}
+
 
 exports.handler = async function(event, context) {
     if (event.httpMethod !== 'POST') {
         return { statusCode: 405, body: 'Method Not Allowed' };
     }
 
-    // Ověření uživatele
     const { user, error } = await verifyUser(event.headers.authorization);
-    if (error) {
-        return error;
-    }
+    if (error) return error;
 
     try {
-        const { odborId, newAgendaId, newAgendaData } = JSON.parse(event.body);
+        const { odborId, newAgendaId, newAgendaData, serviceLinks, infoSystemLinks } = JSON.parse(event.body);
 
-        // Kontrola oprávnění pro zápis
         const canWrite = user.role === 'administrator' || (user.role === 'garant' && user.odbor === odborId);
-
         if (!canWrite) {
             return { statusCode: 403, body: JSON.stringify({ error: 'Forbidden: Insufficient permissions.' }) };
         }
 
+        const updates = {};
         const agendaPath = `agendy/children/${odborId}/children/${newAgendaId}`;
-        await db.ref(agendaPath).set(newAgendaData);
+        updates[agendaPath] = newAgendaData;
+
+        // Create reciprocal links for services
+        if (serviceLinks && Array.isArray(serviceLinks)) {
+            for (const serviceId of serviceLinks) {
+                const serviceRelativePath = await findServicePath(serviceId);
+                if (serviceRelativePath) {
+                    const serviceAgendaLinksPath = `primarni/children/sluzby/children/${serviceRelativePath}/details/Agendy/linksTo`;
+                    const snapshot = await db.ref(serviceAgendaLinksPath).once('value');
+                    let links = snapshot.val();
+                    if (!Array.isArray(links)) links = []; 
+                    if (!links.includes(newAgendaId)) links.push(newAgendaId);
+                    updates[serviceAgendaLinksPath] = links;
+                }
+            }
+        }
+        
+        // Create reciprocal links for information systems
+        if (infoSystemLinks && Array.isArray(infoSystemLinks)) {
+            for (const systemId of infoSystemLinks) {
+                const systemLinksPath = `primarni/children/informacni-systemy/children/${systemId}/details/Agendy/linksTo`;
+                const snapshot = await db.ref(systemLinksPath).once('value');
+                let links = snapshot.val();
+                if (!Array.isArray(links)) links = [];
+                if (!links.includes(newAgendaId)) links.push(newAgendaId);
+                updates[systemLinksPath] = links;
+            }
+        }
+
+        await db.ref().update(updates);
 
         return {
             statusCode: 201,
