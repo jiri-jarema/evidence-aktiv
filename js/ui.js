@@ -557,41 +557,57 @@ function createDetailsForForm(categoryId, existingDetails, detailOrder) {
     const category = allAssets[categoryId];
     const detailsForForm = {};
 
-    // Use a sample asset from the category as a template for structure, but prioritize the detailOrder.
     const sampleAsset = (category && category.children) ? Object.values(category.children)[0] : null;
+    
+    // Fallback default structure for a new agenda, in case the category is empty
+    const defaultAgendaStructure = {
+        'Lhůty pro výmaz': { type: 'dictionary', value: { 'skartační lhůta': '', 'spisový znak': '', 'ukončení zpracování': '' } },
+        'Způsob zpracování': {
+            type: 'processing-methods',
+            value: [
+                { checked: false, label: 'agendový informační systém (AIS)', linksTo: [] },
+                { checked: false, label: 'soubory na síťovém úložišti', details: '' },
+                { checked: false, label: 'soubory na lokálním úložišti', details: '' },
+                { checked: false, label: 'soubory na přenosném úložišti', details: '' },
+                { checked: false, label: 'jiné elektronické', details: '' },
+                { checked: false, label: 'analogové', details: '' }
+            ]
+        },
+        'Regulované služby': { linksTo: [] }
+    };
 
     for (const key of detailOrder) {
-        // 1. Use existing data if available
         if (existingDetails && existingDetails[key] !== undefined) {
             detailsForForm[key] = JSON.parse(JSON.stringify(existingDetails[key]));
             continue;
         }
 
-        // 2. Use the structure from a sample asset if available
         if (sampleAsset && sampleAsset.details && sampleAsset.details[key] !== undefined) {
             const template = JSON.parse(JSON.stringify(sampleAsset.details[key]));
-            // Reset values to blank
-            if (template.value !== undefined) template.value = '';
-            if (template.linksTo !== undefined) template.linksTo = [];
-            if (template.checked !== undefined) template.checked.fill(false);
-            if (Array.isArray(template.value)) { // For processing-methods
-                 template.value.forEach(v => {
+            if (template.value !== undefined) template.value = (typeof template.value === 'object' && !Array.isArray(template.value)) ? { ...template.value } : '';
+            if (Array.isArray(template.value)) {
+                template.value.forEach(v => {
                     v.checked = false;
                     if (v.details) v.details = '';
                     if (v.linksTo) v.linksTo = [];
                 });
             }
+            if (template.linksTo !== undefined) template.linksTo = [];
+            if (template.checked !== undefined) template.checked.fill(false);
             if (template.type === 'dictionary') {
-                for (const subKey in template.value) {
-                    template.value[subKey] = '';
-                }
+                for (const subKey in template.value) template.value[subKey] = '';
             }
             detailsForForm[key] = template;
             continue;
         }
+        
+        // Fallback for new agenda form in an empty category
+        if (defaultAgendaStructure[key]) {
+            detailsForForm[key] = JSON.parse(JSON.stringify(defaultAgendaStructure[key]));
+            continue;
+        }
 
-        // 3. If no template, create a default structure for known link types
-        const linkFields = ['Regulované služby', 'Agendy', 'Regulovaná služba', 'Aplikační server', 'Databáze', 'Sítě', 'Server', 'Cil_zalohovani', 'Provozovane_databaze', 'Provozovane_informacni_systemy', 'Informacni_systemy_vyuzivajici_DB', 'Informacni_systemy', 'Agendový informační systém'];
+        const linkFields = ['Agendy', 'Aplikační server', 'Databáze', 'Sítě', 'Server', 'Cil_zalohovani', 'Provozovane_databaze', 'Provozovane_informacni_systemy', 'Informacni_systemy_vyuzivajici_DB', 'Informacni_systemy'];
         if (linkFields.includes(key.replace(/_/g, ' '))) {
             detailsForForm[key] = { linksTo: [] };
         }
@@ -1066,10 +1082,16 @@ function renderEditFormFields(formFragment, assetId, details, detailOrder) {
 
 function renderLinkSelector(container, assetId, key, detail) {
     const allAssets = state.getAllAssets();
-    const asset = allAssets[assetId] || {}; // Ošetření pro nové aktivum
+    const asset = allAssets[assetId] || {};
 
     let assetPath = utils.getPathForAsset(assetId);
-    if (assetId.startsWith('new-asset-')) {
+    if (assetId === 'new-agenda') {
+        const form = container.closest('form');
+        if (form && form.id.startsWith('form-new-agenda-')) {
+            const odborId = form.id.replace('form-new-agenda-', '');
+            assetPath = `agendy/children/${odborId}/children/new-agenda`;
+        }
+    } else if (assetId.startsWith('new-asset-')) {
         const categoryId = assetId.replace('new-asset-', '');
         assetPath = utils.getPathForAsset(categoryId);
     }
