@@ -557,8 +557,10 @@ function createDetailsForForm(categoryId, existingDetails, detailOrder) {
     const category = allAssets[categoryId];
     const detailsForForm = {};
 
-    const sampleAsset = (category && category.children) ? Object.values(category.children)[0] : null;
-
+    const sampleAsset = (category && category.children && Object.keys(category.children).length > 0) 
+        ? Object.values(category.children)[0] 
+        : null;
+    
     // Fallback default structure for a new agenda, in case the category is empty
     const defaultAgendaStructure = {
         'Lhůty pro výmaz': { type: 'dictionary', value: { 'skartační lhůta': '', 'spisový znak': '', 'ukončení zpracování': '' } },
@@ -584,24 +586,34 @@ function createDetailsForForm(categoryId, existingDetails, detailOrder) {
 
         if (sampleAsset && sampleAsset.details && sampleAsset.details[key] !== undefined) {
             const template = JSON.parse(JSON.stringify(sampleAsset.details[key]));
-            if (template.value !== undefined) template.value = (typeof template.value === 'object' && !Array.isArray(template.value)) ? { ...template.value } : '';
-            if (Array.isArray(template.value)) {
-                template.value.forEach(v => {
+            
+            // Reset values to blank
+            if (Array.isArray(template.value)) { // Handle processing-methods array
+                 template.value.forEach(v => {
                     v.checked = false;
-                    if (v.details) v.details = '';
-                    if (v.linksTo) v.linksTo = [];
+                    if (v.details !== undefined) v.details = '';
+                    if (v.linksTo !== undefined) v.linksTo = [];
                 });
+            } else if (template.type === 'dictionary' && typeof template.value === 'object') { // Handle dictionary
+                for (const subKey in template.value) {
+                    template.value[subKey] = '';
+                }
+            } else if (template.value !== undefined) { // Handle simple string value
+                template.value = '';
             }
+
             if (template.linksTo !== undefined) template.linksTo = [];
-            if (template.checked !== undefined) template.checked.fill(false);
-            if (template.type === 'dictionary') {
-                for (const subKey in template.value) template.value[subKey] = '';
+            if (template.checked !== undefined && Array.isArray(template.checked)) {
+                 template.checked.fill(false);
+                 if (template.details) {
+                    template.details = {};
+                 }
             }
+            
             detailsForForm[key] = template;
             continue;
         }
         
-        // Fallback for new agenda form in an empty category
         if (defaultAgendaStructure[key]) {
             detailsForForm[key] = JSON.parse(JSON.stringify(defaultAgendaStructure[key]));
             continue;
@@ -646,7 +658,7 @@ function renderNewAgendaForm(odborId) {
     const emptyDetails = createDetailsForForm(odborId, {}, state.detailOrder);
 
     const formElements = document.createDocumentFragment();
-    renderEditFormFields(formElements, 'new-agenda', emptyDetails, state.detailOrder);
+    renderEditFormFields(formElements, 'new-agenda', emptyDetails, state.detailOrder, { isNewAgenda: true, odborId: odborId });
     form.appendChild(formElements);
     dom.assetDetailContainer.appendChild(form);
 
@@ -911,7 +923,7 @@ function renderSupportAssetEditForm(assetId) {
     form.appendChild(buttonContainer);
 }
 
-function renderEditFormFields(formFragment, assetId, details, detailOrder) {
+function renderEditFormFields(formFragment, assetId, details, detailOrder, context = {}) {
     detailOrder.forEach(key => {
         const detail = details[key];
 
@@ -923,7 +935,6 @@ function renderEditFormFields(formFragment, assetId, details, detailOrder) {
         const inputContainer = document.createElement('div');
 
         if (!detail) {
-            // This case should be rare now, but as a fallback:
             const text = document.createElement('p');
             text.textContent = 'Tato položka nemá definovanou strukturu.';
             text.className = 'text-gray-500 pt-2';
@@ -1060,7 +1071,7 @@ function renderEditFormFields(formFragment, assetId, details, detailOrder) {
             });
             inputContainer.appendChild(select);
         } else if (detail.linksTo !== undefined) {
-            renderLinkSelector(inputContainer, assetId, key, detail);
+            renderLinkSelector(inputContainer, assetId, key, detail, context);
         } else if (detail.value !== undefined && typeof detail.value === 'string') {
             const input = document.createElement('input');
             input.type = 'text';
@@ -1079,22 +1090,17 @@ function renderEditFormFields(formFragment, assetId, details, detailOrder) {
     });
 }
 
-function renderLinkSelector(container, assetId, key, detail) {
+function renderLinkSelector(container, assetId, key, detail, context = {}) {
     const allAssets = state.getAllAssets();
     const asset = allAssets[assetId] || {};
 
-    let assetPath = utils.getPathForAsset(assetId);
-    if (assetId === 'new-agenda') {
-        const form = container.closest('form');
-        if (form && form.id.startsWith('form-new-agenda-')) {
-            const odborId = form.id.replace('form-new-agenda-', '');
-            assetPath = `agendy/children/${odborId}/children/new-agenda`;
-        }
-    } else if (assetId.startsWith('new-asset-')) {
-        const categoryId = assetId.replace('new-asset-', '');
-        assetPath = utils.getPathForAsset(categoryId);
+    let assetPath;
+    if (context.isNewAgenda) {
+        assetPath = `agendy/children/${context.odborId}/children/${assetId}`;
+    } else {
+        assetPath = utils.getPathForAsset(assetId);
     }
-
+    
     const selectedItemsContainer = document.createElement('div');
     selectedItemsContainer.id = `selected-items-${assetId}-${utils.sanitizeForId(key)}`;
     selectedItemsContainer.className = 'flex flex-wrap items-center mb-2';
