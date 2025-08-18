@@ -41,14 +41,17 @@ function loadInitialData() {
         .then(data => {
             state.data = data;
             
-            // Zpracování a uložení agend a služeb do stavu pro snadnější přístup
-            state.agendas = data.agendy ? Object.entries(data.agendy.children).flatMap(([_, odbor]) => 
-                Object.entries(odbor.children).map(([id, agenda]) => ({ id, ...agenda }))
-            ) : [];
-            
-            const servicesNode = findItemById(data, 'sluzby');
-            if (servicesNode) {
-                state.services = flattenServices(servicesNode);
+            // Zpracování a uložení agend do stavu pro snadnější přístup
+            if (data.agendy && data.agendy.children) {
+                 state.agendas = Object.values(data.agendy.children).flatMap(odbor => 
+                    odbor.children ? Object.entries(odbor.children).map(([id, agenda]) => ({ id, ...agenda })) : []
+                );
+            }
+
+            // Zpracování a uložení služeb do stavu
+            const servicesRoot = findItemById(data, 'sluzby');
+            if (servicesRoot) {
+                state.services = flattenServices(servicesRoot);
             }
 
             renderTree();

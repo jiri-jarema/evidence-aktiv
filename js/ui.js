@@ -23,7 +23,7 @@ export function createService() {
     const serviceName = prompt("Zadejte název nové regulované služby:");
     if (serviceName) {
         alert("Funkce pro přidání služby do konkrétní kategorie není implementována. Službu je třeba přidat přímo do databáze.");
-        // Implementace by vyžadovala výběr kategorie, do které se má služba přidat.
+        // Pro plnou funkčnost by bylo potřeba implementovat dialog pro výběr kategorie.
     }
 }
 
@@ -34,7 +34,7 @@ export function editService(serviceId) {
         if (newName && newName !== service.name) {
             showLoading();
             updateService(serviceId, { name: newName })
-                .then(() => location.reload())
+                .then(() => location.reload()) // Jednoduchý způsob, jak aktualizovat strom
                 .catch(error => console.error('Chyba při aktualizaci služby:', error))
                 .finally(hideLoading);
         }
@@ -42,7 +42,7 @@ export function editService(serviceId) {
 }
 
 export function removeService(serviceId) {
-    if (confirm("Opravdu chcete smazat tuto službu? Tím se odstraní i všechny vazby na ni.")) {
+    if (confirm("Opravdu chcete smazat tuto službu? Tím se odstraní i všechny vazby na ni z agend.")) {
         showLoading();
         deleteService(serviceId)
             .then(() => location.reload())
@@ -106,6 +106,7 @@ export function addServiceLink(agendaId) {
         availableServices.map((s, index) => `${index + 1}: ${s.name}`).join('\n');
     
     const choice = prompt(promptMessage);
+    if (choice === null) return; // Uživatel zrušil dialog
     const choiceIndex = parseInt(choice, 10) - 1;
 
     if (!isNaN(choiceIndex) && choiceIndex >= 0 && choiceIndex < availableServices.length) {
@@ -123,12 +124,13 @@ export function addServiceLink(agendaId) {
         showLoading();
         updateAgenda(agendaId, { details: updatedDetails })
             .then(() => {
-                // Lokální aktualizace stavu pro okamžitou odezvu
                 agenda.details = updatedDetails;
                 renderDetails(agenda);
             })
             .catch(error => console.error('Chyba při přidávání vazby:', error))
             .finally(hideLoading);
+    } else {
+        alert("Neplatná volba.");
     }
 }
 
@@ -152,7 +154,6 @@ export function removeServiceLink(agendaId, serviceIdToRemove) {
     showLoading();
     updateAgenda(agendaId, { details: updatedDetails })
         .then(() => {
-            // Lokální aktualizace stavu
             agenda.details = updatedDetails;
             renderDetails(agenda);
         })

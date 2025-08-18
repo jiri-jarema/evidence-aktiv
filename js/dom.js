@@ -4,10 +4,15 @@ import { state } from './state.js';
 const treeContainer = document.getElementById('assets-tree');
 const detailsContainer = document.getElementById('asset-details');
 
+/**
+ * Vykreslí celý strom aktiv.
+ */
 export function renderTree() {
     treeContainer.innerHTML = createTreeHTML(state.data);
+    // Po vykreslení znovu navážeme event listenery
     treeContainer.querySelectorAll('.asset-item').forEach(item => {
         item.addEventListener('click', (e) => {
+            // Zabráníme spuštění, pokud se kliklo na tlačítko nebo jeho ikonu
             if (e.target.tagName === 'BUTTON' || e.target.parentElement.tagName === 'BUTTON') return;
             
             const id = item.dataset.id;
@@ -19,6 +24,11 @@ export function renderTree() {
     });
 }
 
+/**
+ * Rekurzivně generuje HTML pro stromovou strukturu.
+ * @param {object} node - Uzel, pro který se generuje HTML.
+ * @returns {string} HTML řetězec.
+ */
 function createTreeHTML(node) {
     if (!node || !node.children) return '';
     let html = '<ul>';
@@ -29,9 +39,11 @@ function createTreeHTML(node) {
         html += `<li class="ml-4">`;
         html += `<div class="flex items-center justify-between p-1 rounded hover:bg-gray-200">`;
         html += `<span class="asset-item cursor-pointer font-semibold" data-id="${child.id}">${child.name}</span>`;
+        
         if (state.userRole === 'administrator') {
-            html += `<div>${getEditButtons(child)}</div>`;
+            html += `<div class="flex-shrink-0">${getEditButtons(child)}</div>`;
         }
+        
         html += `</div>`;
 
         if (hasChildren) {
@@ -43,19 +55,24 @@ function createTreeHTML(node) {
     return html;
 }
 
+/**
+ * Generuje HTML pro tlačítka úprav na základě typu aktiva.
+ * @param {object} item - Objekt aktiva.
+ * @returns {string} HTML řetězec s tlačítky.
+ */
 function getEditButtons(item) {
     let buttons = '';
     const type = item.type;
 
     if (type && type.includes('sluzba')) {
-        buttons += `<button onclick="editService('${item.id}')" class="text-xs bg-yellow-500 text-white p-1 rounded mr-1">Upravit</button>`;
-        buttons += `<button onclick="removeService('${item.id}')" class="text-xs bg-red-500 text-white p-1 rounded">Smazat</button>`;
+        buttons += `<button onclick="editService('${item.id}')" class="text-xs bg-yellow-500 text-white p-1 rounded mr-1" title="Upravit">Upravit</button>`;
+        buttons += `<button onclick="removeService('${item.id}')" class="text-xs bg-red-500 text-white p-1 rounded" title="Smazat">Smazat</button>`;
     } else if (type === 'agenda') {
-         buttons += `<button onclick="editAgenda('${item.id}')" class="text-xs bg-yellow-500 text-white p-1 rounded mr-1">Upravit</button>`;
-         buttons += `<button onclick="removeAgenda('${item.id}')" class="text-xs bg-red-500 text-white p-1 rounded">Smazat</button>`;
+         buttons += `<button onclick="editAgenda('${item.id}')" class="text-xs bg-yellow-500 text-white p-1 rounded mr-1" title="Upravit">Upravit</button>`;
+         buttons += `<button onclick="removeAgenda('${item.id}')" class="text-xs bg-red-500 text-white p-1 rounded" title="Smazat">Smazat</button>`;
     } else if (type && type.includes('podpurne-aktivum')) {
-         buttons += `<button onclick="editSupportAsset('${item.id}')" class="text-xs bg-yellow-500 text-white p-1 rounded mr-1">Upravit</button>`;
-         buttons += `<button onclick="removeSupportAsset('${item.id}')" class="text-xs bg-red-500 text-white p-1 rounded">Smazat</button>`;
+         buttons += `<button onclick="editSupportAsset('${item.id}')" class="text-xs bg-yellow-500 text-white p-1 rounded mr-1" title="Upravit">Upravit</button>`;
+         buttons += `<button onclick="removeSupportAsset('${item.id}')" class="text-xs bg-red-500 text-white p-1 rounded" title="Smazat">Smazat</button>`;
     }
     
     if (item.id === 'agendy') {
@@ -71,6 +88,10 @@ function getEditButtons(item) {
     return buttons;
 }
 
+/**
+ * Vykreslí detail vybraného aktiva.
+ * @param {object} asset - Objekt aktiva k zobrazení.
+ */
 export function renderDetails(asset) {
     let html = `<h3 class="text-xl font-bold mb-2">${asset.name}</h3>`;
     html += `<p class="text-sm text-gray-500 mb-4">ID: ${asset.id} | Typ: ${asset.type || 'N/A'}</p>`;
@@ -79,27 +100,25 @@ export function renderDetails(asset) {
         html += '<h4 class="font-semibold mt-4 border-b pb-1 mb-2">Detaily:</h4>';
         html += '<dl class="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-2">';
         for (const key in asset.details) {
-            // Přeskočíme renderování vazeb zde, protože je budeme renderovat speciálně
             if (key === 'Regulované služby') continue;
 
             const detail = asset.details[key];
             html += `<div class="bg-gray-50 p-2 rounded">`;
             html += `<dt class="text-sm font-medium text-gray-500">${key}</dt>`;
-            if (detail.linksTo) {
+            if (detail && detail.linksTo) {
                 const linkedItems = [].concat(detail.linksTo).map(id => {
                     const item = findItemById(state.data, id);
                     return item ? item.name : `<span class="text-red-500">Nenalezeno (${id})</span>`;
                 }).join(', ');
                 html += `<dd class="mt-1 text-sm text-gray-900">${linkedItems}</dd>`;
             } else {
-                html += `<dd class="mt-1 text-sm text-gray-900">${detail.value || 'N/A'}</dd>`;
+                html += `<dd class="mt-1 text-sm text-gray-900">${(detail && detail.value) || 'N/A'}</dd>`;
             }
             html += `</div>`;
         }
         html += '</dl>';
     }
 
-    // Speciální renderování pro vazby agend na regulované služby
     if (asset.type === 'agenda' && state.userRole === 'administrator') {
         html += '<h4 class="font-semibold mt-6 border-b pb-1 mb-2">Propojené regulované služby</h4>';
         
@@ -128,19 +147,24 @@ export function renderDetails(asset) {
     detailsContainer.innerHTML = html;
 }
 
+/**
+ * Vykreslí tabulku pro správu uživatelů.
+ * @param {Array} users - Pole objektů uživatelů.
+ */
 export function renderUsers(users) {
     let html = `
         <h2 class="text-2xl font-bold mb-4">Správa uživatelů</h2>
         <button onclick="addUser()" class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded mb-4">Přidat uživatele</button>
-        <table class="min-w-full bg-white">
-            <thead>
-                <tr>
-                    <th class="py-2 px-4 border-b">Email</th>
-                    <th class="py-2 px-4 border-b">Role</th>
-                    <th class="py-2 px-4 border-b">Akce</th>
-                </tr>
-            </thead>
-            <tbody>
+        <div class="overflow-x-auto">
+            <table class="min-w-full bg-white">
+                <thead class="bg-gray-200">
+                    <tr>
+                        <th class="py-2 px-4 border-b text-left">Email</th>
+                        <th class="py-2 px-4 border-b text-left">Role</th>
+                        <th class="py-2 px-4 border-b text-left">Akce</th>
+                    </tr>
+                </thead>
+                <tbody>
     `;
     users.forEach(user => {
         html += `
@@ -154,23 +178,41 @@ export function renderUsers(users) {
             </tr>
         `;
     });
-    html += '</tbody></table>';
+    html += '</tbody></table></div>';
     detailsContainer.innerHTML = html;
 }
 
+/**
+ * Najde položku v celé datové struktuře pomocí ID (klíče).
+ * Používá ne-rekurzivní prohledávání do šířky (BFS).
+ * @param {object} node - Kořenový uzel, od kterého se začíná hledat.
+ * @param {string} id - ID (klíč) hledané položky.
+ * @returns {object|null} Nalezený objekt nebo null.
+ */
 export function findItemById(node, id) {
     if (!node) return null;
-    if (node.id === id) return node;
-    if (node.children) {
-        for (const key in node.children) {
-            const child = { id: key, ...node.children[key] };
-            const found = findItemById(child, id);
-            if (found) return found;
+    
+    const queue = [{ id: 'root', ...node }];
+    
+    while(queue.length > 0) {
+        const current = queue.shift();
+        if (current.id === id) {
+            return current;
+        }
+        if (current.children) {
+            for (const key in current.children) {
+                queue.push({ id: key, ...current.children[key] });
+            }
         }
     }
     return null;
 }
 
+/**
+ * Zploští strukturu služeb do jednoho pole pro snadnější výběr.
+ * @param {object} servicesNode - Uzel obsahující kategorie služeb.
+ * @returns {Array} Pole objektů služeb.
+ */
 export function flattenServices(servicesNode) {
     let services = [];
     if (servicesNode && servicesNode.children) {
