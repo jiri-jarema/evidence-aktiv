@@ -31,7 +31,7 @@ export async function loadInitialData() {
  * @param {object} newAgendaData - The data for the new agenda.
  * @returns {Promise<boolean>} - True if successful, false otherwise.
  */
-export async function createNewAgenda(odborId, newAgendaId, newAgendaData) {
+export async function createNewAgenda(payload) {
     const user = getCurrentUser();
     if (!user) return false;
 
@@ -40,7 +40,7 @@ export async function createNewAgenda(odborId, newAgendaId, newAgendaData) {
         const response = await fetch('/.netlify/functions/create-agenda', {
             method: 'POST',
             headers: { 'Authorization': `Bearer ${idToken}` },
-            body: JSON.stringify({ odborId, newAgendaId, newAgendaData })
+            body: JSON.stringify(payload)
         });
         if (!response.ok) throw new Error(await response.text());
         return true;
