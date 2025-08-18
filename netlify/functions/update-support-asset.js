@@ -34,18 +34,31 @@ async function verifyUser(authorization) {
     }
 }
 
-// Funkce pro získání celé cesty k agendě
+// Opravená funkce pro rekurzivní nalezení cesty k agendě
 async function findAgendaPath(agendaId) {
-    const agendyRef = db.ref('agendy/children');
+    const agendyRef = db.ref('agendy');
     const snapshot = await agendyRef.once('value');
-    const odbory = snapshot.val();
-    for (const odborId in odbory) {
-        if (odbory[odborId].children && odbory[odborId].children[agendaId]) {
-            return `agendy/children/${odborId}/children/${agendaId}`;
+    const data = snapshot.val();
+    
+    function search(currentPath, currentNode) {
+        if (!currentNode) return null;
+        for (const key in currentNode) {
+            const newPath = currentPath ? `${currentPath}/${key}` : key;
+            if (key === agendaId) {
+                return newPath;
+            }
+            if (typeof currentNode[key] === 'object' && currentNode[key] && currentNode[key].children) {
+                const result = search(`${newPath}/children`, currentNode[key].children);
+                if (result) return result;
+            }
         }
+        return null;
     }
-    return null;
+    
+    const resultPath = search('children', data.children);
+    return resultPath ? `agendy/${resultPath}` : null;
 }
+
 
 exports.handler = async function(event, context) {
     if (event.httpMethod !== 'POST') {
@@ -75,7 +88,7 @@ exports.handler = async function(event, context) {
                 const { targetPath, sourceId } = link;
                 const snapshot = await db.ref(targetPath).once('value');
                 let links = snapshot.val();
-                if (!Array.isArray(links)) links = []; // Oprava
+                if (!Array.isArray(links)) links = [];
                 if (!links.includes(sourceId)) {
                     links.push(sourceId);
                 }
@@ -86,19 +99,19 @@ exports.handler = async function(event, context) {
                 const { targetPath, sourceId } = link;
                 const snapshot = await db.ref(targetPath).once('value');
                 let links = snapshot.val();
-                if (!Array.isArray(links)) links = []; // Oprava
+                if (!Array.isArray(links)) links = [];
                 const filteredLinks = links.filter(id => id !== sourceId);
-                updates[targetPath] = filteredLinks.length > 0 ? filteredLinks : ""; // Oprava na ""
+                updates[targetPath] = filteredLinks.length > 0 ? filteredLinks : "";
             }
 
-            // Nová logika pro vazby Služba -> Agenda
+            // Opravená logika pro vazby Služba -> Agenda
             for (const agendaId of (reciprocalLinks.agendasToAdd || [])) {
                  const targetAgendaPath = await findAgendaPath(agendaId);
                  if (targetAgendaPath) {
                      const agendaServiceLinksPath = `${targetAgendaPath}/details/Regulované služby/linksTo`;
                      const snapshot = await db.ref(agendaServiceLinksPath).once('value');
                      let links = snapshot.val();
-                     if (!Array.isArray(links)) links = []; // Oprava
+                     if (!Array.isArray(links)) links = [];
                      if (!links.includes(reciprocalLinks.sourceId)) links.push(reciprocalLinks.sourceId);
                      updates[agendaServiceLinksPath] = links;
                  }
@@ -109,9 +122,9 @@ exports.handler = async function(event, context) {
                      const agendaServiceLinksPath = `${targetAgendaPath}/details/Regulované služby/linksTo`;
                      const snapshot = await db.ref(agendaServiceLinksPath).once('value');
                      let links = snapshot.val() || [];
-                     if (!Array.isArray(links)) links = []; // Oprava
+                     if (!Array.isArray(links)) links = [];
                      const filteredLinks = links.filter(id => id !== reciprocalLinks.sourceId);
-                     updates[agendaServiceLinksPath] = filteredLinks.length > 0 ? filteredLinks : ""; // Oprava na ""
+                     updates[agendaServiceLinksPath] = filteredLinks.length > 0 ? filteredLinks : "";
                  }
             }
         }
