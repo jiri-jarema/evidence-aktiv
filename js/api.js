@@ -26,9 +26,7 @@ export async function loadInitialData() {
 
 /**
  * Creates a new agenda item on the server.
- * @param {string} odborId - The ID of the department.
- * @param {string} newAgendaId - The unique ID for the new agenda.
- * @param {object} newAgendaData - The data for the new agenda.
+ * @param {object} payload - The data for the new agenda.
  * @returns {Promise<boolean>} - True if successful, false otherwise.
  */
 export async function createNewAgenda(payload) {
@@ -174,6 +172,14 @@ export async function deleteAgenda(assetId) {
     if (aisMethod && aisMethod.linksTo) {
         linkedSystems.push(...aisMethod.linksTo);
     }
+    
+    // Find linked services
+    const linkedServices = [];
+    const regulatedServices = assetToDelete.details?.["Regulované služby"]?.linksTo;
+    if (regulatedServices && Array.isArray(regulatedServices)) {
+        linkedServices.push(...regulatedServices);
+    }
+
 
     const agendaPath = getPathForAsset(assetId);
     const idToken = await user.getIdToken();
@@ -182,7 +188,7 @@ export async function deleteAgenda(assetId) {
         const response = await fetch('/.netlify/functions/delete-agenda', {
             method: 'POST',
             headers: { 'Authorization': `Bearer ${idToken}` },
-            body: JSON.stringify({ agendaId: assetId, agendaPath, linkedSystems })
+            body: JSON.stringify({ agendaId: assetId, agendaPath, linkedSystems, linkedServices })
         });
         if (!response.ok) throw new Error(await response.text());
         return true;
