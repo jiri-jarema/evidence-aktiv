@@ -35,6 +35,24 @@ async function verifyAdmin(authorization) {
     }
 }
 
+async function findServicePath(serviceId) {
+    const sluzbyRef = db.ref('primarni/children/sluzby/children');
+    const snapshot = await sluzbyRef.once('value');
+    const serviceCategories = snapshot.val();
+    
+    if (!serviceCategories) {
+        return null;
+    }
+
+    for (const categoryId in serviceCategories) {
+        const category = serviceCategories[categoryId];
+        if (category.children && category.children[serviceId]) {
+            return `${categoryId}/children/${serviceId}`;
+        }
+    }
+    return null;
+}
+
 exports.handler = async function(event, context) {
     if (event.httpMethod !== 'POST') {
         return { statusCode: 405, body: 'Method Not Allowed' };
@@ -44,7 +62,7 @@ exports.handler = async function(event, context) {
     if (error) return error;
 
     try {
-        const { agendaId, agendaPath, linkedSystems } = JSON.parse(event.body);
+        const { agendaId, agendaPath, linkedSystems, linkedServices } = JSON.parse(event.body);
         
         if (!agendaId || !agendaPath) {
             return { statusCode: 400, body: JSON.stringify({ error: 'Bad Request: Missing agendaId or agendaPath.' }) };
@@ -68,7 +86,23 @@ exports.handler = async function(event, context) {
             }
         }
 
-        // 3. Perform the atomic update
+        // 3. Remove reciprocal links from regulated services
+        if (linkedServices && Array.isArray(linkedServices)) {
+            for (const serviceId of linkedServices) {
+                const serviceRelativePath = await findServicePath(serviceId);
+                if (serviceRelativePath) {
+                    const serviceLinksPath = `primarni/children/sluzby/children/${serviceRelativePath}/details/Agendy/linksTo`;
+                    const snapshot = await db.ref(serviceLinksPath).once('value');
+                    let links = snapshot.val();
+                    if (Array.isArray(links)) {
+                        const filteredLinks = links.filter(id => id !== agendaId);
+                        updates[serviceLinksPath] = filteredLinks.length > 0 ? filteredLinks : null;
+                    }
+                }
+            }
+        }
+
+        // 4. Perform the atomic update
         await db.ref().update(updates);
 
         return {
