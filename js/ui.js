@@ -1909,4 +1909,3 @@ function renderNewServiceForm(categoryId) {
 
     dom.assetDetailContainer.appendChild(form);
 }
-}
