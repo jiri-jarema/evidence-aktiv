@@ -81,8 +81,9 @@ function showConfirmationModal(message, onConfirm) {
  * @param {object} data - The hierarchical data for the navigation.
  * @param {HTMLElement} parentElement - The element to append the navigation to.
  * @param {number} [level=0] - The current recursion level.
+ * @param {string|null} [parentKey=null] - The key of the parent item.
  */
-export function buildNav(data, parentElement, level = 0) {
+export function buildNav(data, parentElement, level = 0, parentKey = null) {
   if (level === 0) {
     const userRole = state.getUserRole();
     if (userRole === 'administrator') {
@@ -104,7 +105,6 @@ export function buildNav(data, parentElement, level = 0) {
     }
   }
 
-    // Limit navigation depth in the sidebar to two levels.
     if (level >= 2) return;
     const ul = document.createElement('ul');
     if (level > 0) ul.style.paddingLeft = `${(level - 1) * 16}px`;
@@ -112,7 +112,7 @@ export function buildNav(data, parentElement, level = 0) {
     let keys = Object.keys(data);
     
     // Sort service categories alphabetically
-    if (level === 2 && keys.length > 0 && utils.findParentId(keys[0]) === 'sluzby') {
+    if (parentKey === 'sluzby') {
         keys.sort((a, b) => data[a].name.localeCompare(data[b].name, 'cs'));
     }
 
@@ -124,7 +124,6 @@ export function buildNav(data, parentElement, level = 0) {
         itemDiv.dataset.id = key;
         itemDiv.className = level === 0 ? 'font-bold text-lg mt-4 cursor-default' : 'p-2 rounded-md sidebar-item';
 
-        // Only items with children should be clickable categories
         if (level > 0 && item.children) {
             itemDiv.onclick = () => showCategoryContent(key);
         } else if (level > 0) {
@@ -133,7 +132,7 @@ export function buildNav(data, parentElement, level = 0) {
 
 
         li.appendChild(itemDiv);
-        if (item.children) buildNav(item.children, li, level + 1);
+        if (item.children) buildNav(item.children, li, level + 1, key);
         ul.appendChild(li);
     }
     parentElement.appendChild(ul);
@@ -146,11 +145,14 @@ export function buildNav(data, parentElement, level = 0) {
 export function showCategoryContent(categoryId) {
     const allAssets = state.getAllAssets();
     const asset = allAssets[categoryId];
+
     if (!asset) {
         console.error(`Asset with ID ${categoryId} not found.`);
         return;
     }
-    if (!asset.children) {
+    
+    // If asset has details, it's a leaf node, show details instead.
+    if (asset.details) {
         showAssetDetails(categoryId, utils.findParentId(categoryId));
         return;
     }
@@ -236,19 +238,21 @@ export function showCategoryContent(categoryId) {
 
     const listContainer = document.createElement('div');
     listContainer.className = 'flex flex-col space-y-2';
-    for (const childId in asset.children) {
-        const childAsset = asset.children[childId];
-        const listItem = document.createElement('div');
-        listItem.className = 'bg-white p-4 rounded-md hover:bg-gray-50 transition-colors cursor-pointer border border-gray-200';
-        listItem.innerHTML = `<h3 class="font-semibold text-blue-600">${childAsset.name}</h3>`;
+    if (asset.children) {
+        for (const childId in asset.children) {
+            const childAsset = asset.children[childId];
+            const listItem = document.createElement('div');
+            listItem.className = 'bg-white p-4 rounded-md hover:bg-gray-50 transition-colors cursor-pointer border border-gray-200';
+            listItem.innerHTML = `<h3 class="font-semibold text-blue-600">${childAsset.name}</h3>`;
 
-        if (childAsset.children) {
-            listItem.onclick = () => showCategoryContent(childId);
-        } else {
-            listItem.onclick = () => showAssetDetails(childId, categoryId);
+            if (childAsset.children) {
+                listItem.onclick = () => showCategoryContent(childId);
+            } else {
+                listItem.onclick = () => showAssetDetails(childId, categoryId);
+            }
+
+            listContainer.appendChild(listItem);
         }
-
-        listContainer.appendChild(listItem);
     }
     dom.assetDetailContainer.appendChild(listContainer);
 }
