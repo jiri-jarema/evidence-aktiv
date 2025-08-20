@@ -124,7 +124,7 @@ export function buildNav(data, parentElement, level = 0, parentKey = null) {
         itemDiv.dataset.id = key;
         itemDiv.className = level === 0 ? 'font-bold text-lg mt-4 cursor-default' : 'p-2 rounded-md sidebar-item';
 
-        if (level > 0 && item.children) {
+        if (level > 0 && (item.children || !item.details)) { // Treat as category if it has children OR no details
             itemDiv.onclick = () => showCategoryContent(key);
         } else if (level > 0) {
             itemDiv.onclick = () => showAssetDetails(key, utils.findParentId(key));
@@ -245,7 +245,7 @@ export function showCategoryContent(categoryId) {
             listItem.className = 'bg-white p-4 rounded-md hover:bg-gray-50 transition-colors cursor-pointer border border-gray-200';
             listItem.innerHTML = `<h3 class="font-semibold text-blue-600">${childAsset.name}</h3>`;
 
-            if (childAsset.children) {
+            if (childAsset.children || !childAsset.details) {
                 listItem.onclick = () => showCategoryContent(childId);
             } else {
                 listItem.onclick = () => showAssetDetails(childId, categoryId);
@@ -1908,4 +1908,5 @@ function renderNewServiceForm(categoryId) {
     };
 
     dom.assetDetailContainer.appendChild(form);
+}
 }

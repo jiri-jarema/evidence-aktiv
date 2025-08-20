@@ -14,6 +14,21 @@ if (!admin.apps.length) {
 
 const db = admin.database();
 
+/**
+ * Sanitizes text to be used as part of an ID.
+ * @param {string} text - The text to sanitize.
+ * @returns {string} - The sanitized text.
+ */
+function sanitizeForId(text) {
+    return text.toString().toLowerCase()
+        .replace(/\s+/g, '-')           // Nahradí mezery pomlčkami
+        .replace(/[^\w\-]+/g, '')       // Odstraní všechny ne-word znaky
+        .replace(/\-\-+/g, '-')         // Nahradí vícenásobné pomlčky jednou
+        .replace(/^-+/, '')             // Ořízne pomlčky ze začátku
+        .replace(/-+$/, '');            // Ořízne pomlčky z konce
+}
+
+
 exports.handler = async function(event, context) {
     if (event.httpMethod !== 'POST') {
         return { statusCode: 405, body: 'Method Not Allowed' };
@@ -44,10 +59,24 @@ exports.handler = async function(event, context) {
     
     try {
         const { parentId, name } = JSON.parse(event.body);
-        const newCategoryRef = db.ref(`primarni/children/${parentId}/children`).push();
+        
+        // Generate a sanitized, readable key from the category name
+        const newCategoryId = sanitizeForId(name);
+        
+        const newCategoryRef = db.ref(`primarni/children/${parentId}/children/${newCategoryId}`);
+        
+        // Check if a category with this key already exists
+        const existingCategorySnapshot = await newCategoryRef.once('value');
+        if (existingCategorySnapshot.exists()) {
+            return {
+                statusCode: 409, // Conflict
+                body: JSON.stringify({ error: 'Kategorie s tímto názvem již existuje.' }),
+            };
+        }
+
         await newCategoryRef.set({
-            name: name,
-            children: {}
+            name: name
+            // Firebase automatically handles empty children, no need to explicitly set children: {}
         });
 
         return {
