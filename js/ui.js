@@ -190,6 +190,22 @@ export function showCategoryContent(categoryId) {
 
     const userRole = state.getUserRole();
     const userOdbor = state.getUserOdbor();
+    const assetData = state.getAssetData();
+
+
+    if (categoryId === 'sluzby' && userRole === 'administrator') {
+        const addButton = document.createElement('button');
+        addButton.textContent = 'Přidat novou kategorii služeb';
+        addButton.className = 'px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600';
+        addButton.onclick = () => renderNewServiceCategoryForm(categoryId);
+        titleContainer.appendChild(addButton);
+    } else if (parentId === 'sluzby' && userRole === 'administrator') {
+        const addButton = document.createElement('button');
+        addButton.textContent = 'Přidat novou službu';
+        addButton.className = 'px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600';
+        addButton.onclick = () => renderNewServiceForm(categoryId);
+        titleContainer.appendChild(addButton);
+    }
 
     if (parentId === 'agendy' && (userRole === 'administrator' || (userRole === 'garant' && userOdbor === categoryId))) {
         const addButton = document.createElement('button');
@@ -1712,4 +1728,171 @@ document.getElementById('nav-btn-users')?.classList.add('active');
   }
 
   await refresh();
+}
+
+function renderNewServiceCategoryForm(parentId) {
+    dom.assetDetailContainer.innerHTML = '';
+    const allAssets = state.getAllAssets();
+    const parentName = allAssets[parentId].name;
+
+    const title = document.createElement('h2');
+    title.textContent = `Nová kategorie pro: ${parentName}`;
+    title.className = 'text-3xl font-bold mb-6 pb-2 border-b border-gray-300';
+    dom.assetDetailContainer.appendChild(title);
+
+    const form = document.createElement('form');
+    form.className = 'edit-form-grid';
+
+    const nameLabel = document.createElement('label');
+    nameLabel.textContent = 'Název kategorie';
+    const nameInput = document.createElement('input');
+    nameInput.type = 'text';
+    nameInput.className = 'form-input';
+    nameInput.required = true;
+
+    form.appendChild(nameLabel);
+    form.appendChild(nameInput);
+
+    const buttonContainer = document.createElement('div');
+    buttonContainer.className = 'mt-6 flex justify-end space-x-4 col-span-2';
+    const saveButton = document.createElement('button');
+    saveButton.textContent = 'Uložit';
+    saveButton.className = 'px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700';
+    saveButton.type = 'submit';
+
+    const cancelButton = document.createElement('button');
+    cancelButton.textContent = 'Zrušit';
+    cancelButton.className = 'px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300';
+    cancelButton.onclick = (e) => {
+        e.preventDefault();
+        showCategoryContent(parentId);
+    };
+
+    buttonContainer.appendChild(cancelButton);
+    buttonContainer.appendChild(saveButton);
+    form.appendChild(buttonContainer);
+
+    form.onsubmit = async (e) => {
+        e.preventDefault();
+        const newCategoryName = nameInput.value.trim();
+        if (!newCategoryName) {
+            alert('Název kategorie nesmí být prázdný.');
+            return;
+        }
+        showLoader();
+        try {
+            const success = await api.createNewServiceCategory({
+                parentId,
+                name: newCategoryName
+            });
+            if (success) {
+                await reloadDataAndRebuildUI();
+                showCategoryContent(parentId);
+            }
+        } finally {
+            hideLoader();
+        }
+    };
+
+    dom.assetDetailContainer.appendChild(form);
+}
+
+function renderNewServiceForm(categoryId) {
+    dom.assetDetailContainer.innerHTML = '';
+    const allAssets = state.getAllAssets();
+    const categoryName = allAssets[categoryId].name;
+
+    const title = document.createElement('h2');
+    title.textContent = `Nová služba v kategorii: ${categoryName}`;
+    title.className = 'text-3xl font-bold mb-6 pb-2 border-b border-gray-300';
+    dom.assetDetailContainer.appendChild(title);
+
+    const form = document.createElement('form');
+    form.className = 'edit-form-grid';
+
+    // Název služby
+    const nameLabel = document.createElement('label');
+    nameLabel.textContent = 'Název služby';
+    const nameInput = document.createElement('input');
+    nameInput.type = 'text';
+    nameInput.className = 'form-input';
+    nameInput.required = true;
+    form.appendChild(nameLabel);
+    form.appendChild(nameInput);
+
+    // Legislativa
+    const legislativaLabel = document.createElement('label');
+    legislativaLabel.textContent = 'Legislativa';
+    const legislativaInput = document.createElement('input');
+    legislativaInput.type = 'text';
+    legislativaInput.className = 'form-input';
+    form.appendChild(legislativaLabel);
+    form.appendChild(legislativaInput);
+
+    // Vazba na agendy
+    const agendaLabel = document.createElement('label');
+    agendaLabel.textContent = 'Agendy';
+    const agendaSelect = document.createElement('select');
+    agendaSelect.className = 'form-input';
+    agendaSelect.multiple = true;
+    const assetData = state.getAssetData();
+    for (const odborId in assetData.agendy.children) {
+        const odbor = assetData.agendy.children[odborId];
+        for (const agendaId in odbor.children) {
+            const agenda = odbor.children[agendaId];
+            const option = document.createElement('option');
+            option.value = agendaId;
+            option.textContent = agenda.name;
+            agendaSelect.appendChild(option);
+        }
+    }
+    form.appendChild(agendaLabel);
+    form.appendChild(agendaSelect);
+
+    const buttonContainer = document.createElement('div');
+    buttonContainer.className = 'mt-6 flex justify-end space-x-4 col-span-2';
+    const saveButton = document.createElement('button');
+    saveButton.textContent = 'Uložit';
+    saveButton.className = 'px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700';
+    saveButton.type = 'submit';
+
+    const cancelButton = document.createElement('button');
+    cancelButton.textContent = 'Zrušit';
+    cancelButton.className = 'px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300';
+    cancelButton.onclick = (e) => {
+        e.preventDefault();
+        showCategoryContent(categoryId);
+    };
+
+    buttonContainer.appendChild(cancelButton);
+    buttonContainer.appendChild(saveButton);
+    form.appendChild(buttonContainer);
+
+    form.onsubmit = async (e) => {
+        e.preventDefault();
+        const newServiceName = nameInput.value.trim();
+        if (!newServiceName) {
+            alert('Název služby nesmí být prázdný.');
+            return;
+        }
+        const selectedAgendas = [...agendaSelect.options].filter(option => option.selected).map(option => option.value);
+
+        showLoader();
+        try {
+            const success = await api.createNewService({
+                categoryId,
+                name: newServiceName,
+                legislativa: legislativaInput.value.trim(),
+                agendy: selectedAgendas
+            });
+            if (success) {
+                await reloadDataAndRebuildUI();
+                showCategoryContent(categoryId);
+            }
+        } finally {
+            hideLoader();
+        }
+    };
+
+    dom.assetDetailContainer.appendChild(form);
 }
