@@ -108,8 +108,15 @@ export function buildNav(data, parentElement, level = 0) {
     if (level >= 2) return;
     const ul = document.createElement('ul');
     if (level > 0) ul.style.paddingLeft = `${(level - 1) * 16}px`;
+    
+    let keys = Object.keys(data);
+    
+    // Sort service categories alphabetically
+    if (level === 2 && keys.length > 0 && utils.findParentId(keys[0]) === 'sluzby') {
+        keys.sort((a, b) => data[a].name.localeCompare(data[b].name, 'cs'));
+    }
 
-    for (const key in data) {
+    for (const key of keys) {
         const item = data[key];
         const li = document.createElement('li');
         const itemDiv = document.createElement('div');
@@ -139,7 +146,11 @@ export function buildNav(data, parentElement, level = 0) {
 export function showCategoryContent(categoryId) {
     const allAssets = state.getAllAssets();
     const asset = allAssets[categoryId];
-    if (!asset || !asset.children) {
+    if (!asset) {
+        console.error(`Asset with ID ${categoryId} not found.`);
+        return;
+    }
+    if (!asset.children) {
         showAssetDetails(categoryId, utils.findParentId(categoryId));
         return;
     }
@@ -190,9 +201,8 @@ export function showCategoryContent(categoryId) {
 
     const userRole = state.getUserRole();
     const userOdbor = state.getUserOdbor();
-    const assetData = state.getAssetData();
-
-
+    
+    // Logic for adding buttons
     if (categoryId === 'sluzby' && userRole === 'administrator') {
         const addButton = document.createElement('button');
         addButton.textContent = 'Přidat novou kategorii služeb';
@@ -205,9 +215,7 @@ export function showCategoryContent(categoryId) {
         addButton.className = 'px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600';
         addButton.onclick = () => renderNewServiceForm(categoryId);
         titleContainer.appendChild(addButton);
-    }
-
-    if (parentId === 'agendy' && (userRole === 'administrator' || (userRole === 'garant' && userOdbor === categoryId))) {
+    } else if (parentId === 'agendy' && (userRole === 'administrator' || (userRole === 'garant' && userOdbor === categoryId))) {
         const addButton = document.createElement('button');
         addButton.textContent = 'Přidat novou agendu';
         addButton.className = 'px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600';
@@ -222,6 +230,7 @@ export function showCategoryContent(categoryId) {
             titleContainer.appendChild(addButton);
         }
     }
+
 
     dom.assetDetailContainer.appendChild(titleContainer);
 
