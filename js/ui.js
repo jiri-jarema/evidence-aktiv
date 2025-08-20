@@ -1194,7 +1194,7 @@ function renderLinkSelector(container, assetId, key, detail, context = {}) {
 
     const updateDropdown = (selectEl, currentSelection) => {
         let assetCategoryPath;
-        if (context.isNewAgenda) {
+        if (context.isNewAgenda || key === "Agendy") { // Force 'agendy' path for new items or when linking to agendas
             assetCategoryPath = 'agendy';
         } else {
             assetCategoryPath = Object.keys(state.reciprocalMap).find(p => assetPath.startsWith(p));
@@ -1799,8 +1799,11 @@ function renderNewServiceCategoryForm(parentId) {
                 name: newCategoryName
             });
             if (success) {
-                await reloadDataAndRebuildUI();
-                showCategoryContent(parentId);
+                const reloaded = await reloadDataAndRebuildUI();
+                 if (reloaded) {
+                    const newCategoryId = utils.sanitizeForId(newCategoryName);
+                    showCategoryContent(newCategoryId);
+                }
             }
         } finally {
             hideLoader();
@@ -1821,57 +1824,42 @@ function renderNewServiceForm(categoryId) {
     dom.assetDetailContainer.appendChild(title);
 
     const form = document.createElement('form');
+    form.id = `form-new-service-${categoryId}`;
     form.className = 'edit-form-grid';
+
+    const formElements = document.createDocumentFragment();
 
     // Název služby
     const nameLabel = document.createElement('label');
     nameLabel.textContent = 'Název služby';
+    nameLabel.htmlFor = 'input-new-service-name';
+    const nameInputContainer = document.createElement('div');
     const nameInput = document.createElement('input');
     nameInput.type = 'text';
+    nameInput.id = 'input-new-service-name';
     nameInput.className = 'form-input';
     nameInput.required = true;
-    form.appendChild(nameLabel);
-    form.appendChild(nameInput);
+    nameInputContainer.appendChild(nameInput);
+    formElements.appendChild(nameLabel);
+    formElements.appendChild(nameInputContainer);
 
-    // Legislativa
-    const legislativaLabel = document.createElement('label');
-    legislativaLabel.textContent = 'Legislativa';
-    const legislativaInput = document.createElement('input');
-    legislativaInput.type = 'text';
-    legislativaInput.className = 'form-input';
-    form.appendChild(legislativaLabel);
-    form.appendChild(legislativaInput);
-
-    // Vazba na agendy
-    const agendaLabel = document.createElement('label');
-    agendaLabel.textContent = 'Agendy';
-    const agendaSelect = document.createElement('select');
-    agendaSelect.className = 'form-input';
-    agendaSelect.multiple = true;
-    const assetData = state.getAssetData();
-    for (const odborId in assetData.agendy.children) {
-        const odbor = assetData.agendy.children[odborId];
-        for (const agendaId in odbor.children) {
-            const agenda = odbor.children[agendaId];
-            const option = document.createElement('option');
-            option.value = agendaId;
-            option.textContent = agenda.name;
-            agendaSelect.appendChild(option);
-        }
-    }
-    form.appendChild(agendaLabel);
-    form.appendChild(agendaSelect);
+    const detailsForForm = createDetailsForForm(categoryId, {}, state.serviceDetailOrder);
+    renderEditFormFields(formElements, `new-service-${categoryId}`, detailsForForm, state.serviceDetailOrder, { isNewService: true });
+    
+    form.appendChild(formElements);
+    dom.assetDetailContainer.appendChild(form);
 
     const buttonContainer = document.createElement('div');
     buttonContainer.className = 'mt-6 flex justify-end space-x-4 col-span-2';
     const saveButton = document.createElement('button');
     saveButton.textContent = 'Uložit';
     saveButton.className = 'px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700';
-    saveButton.type = 'submit';
+    saveButton.type = 'button'; 
 
     const cancelButton = document.createElement('button');
     cancelButton.textContent = 'Zrušit';
     cancelButton.className = 'px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300';
+    cancelButton.type = 'button';
     cancelButton.onclick = (e) => {
         e.preventDefault();
         showCategoryContent(categoryId);
@@ -1881,23 +1869,27 @@ function renderNewServiceForm(categoryId) {
     buttonContainer.appendChild(saveButton);
     form.appendChild(buttonContainer);
 
-    form.onsubmit = async (e) => {
+    saveButton.onclick = async (e) => {
         e.preventDefault();
         const newServiceName = nameInput.value.trim();
         if (!newServiceName) {
             alert('Název služby nesmí být prázdný.');
             return;
         }
-        const selectedAgendas = [...agendaSelect.options].filter(option => option.selected).map(option => option.value);
+
+        const legislativaInput = form.querySelector(`#input-new-service-${categoryId}-legislativa`);
+        const agendaContainer = form.querySelector(`#selected-items-new-service-${categoryId}-agendy`);
+
+        const newServiceData = {
+            categoryId,
+            name: newServiceName,
+            legislativa: legislativaInput ? legislativaInput.value.trim() : '',
+            agendy: agendaContainer ? Array.from(agendaContainer.children).map(badge => badge.dataset.id) : []
+        };
 
         showLoader();
         try {
-            const success = await api.createNewService({
-                categoryId,
-                name: newServiceName,
-                legislativa: legislativaInput.value.trim(),
-                agendy: selectedAgendas
-            });
+            const success = await api.createNewService(newServiceData);
             if (success) {
                 await reloadDataAndRebuildUI();
                 showCategoryContent(categoryId);
@@ -1906,6 +1898,4 @@ function renderNewServiceForm(categoryId) {
             hideLoader();
         }
     };
-
-    dom.assetDetailContainer.appendChild(form);
 }
