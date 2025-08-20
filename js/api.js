@@ -239,3 +239,54 @@ export async function deleteUserByUid(uid) {
   if (!res.ok) throw new Error(await res.text());
   return await res.json();
 }
+
+
+/**
+ * Creates a new service category on the server.
+ * @param {object} payload - The data for the new category.
+ * @returns {Promise<boolean>} - True if successful, false otherwise.
+ */
+export async function createNewServiceCategory(payload) {
+    const user = getCurrentUser();
+    if (!user) return false;
+
+    const idToken = await user.getIdToken();
+    try {
+        const response = await fetch('/.netlify/functions/create-service-category', {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${idToken}` },
+            body: JSON.stringify(payload)
+        });
+        if (!response.ok) throw new Error(await response.text());
+        return true;
+    } catch (error) {
+        console.error('Chyba při vytváření nové kategorie služeb:', error);
+        alert('Nepodařilo se vytvořit novou kategorii služeb.');
+        return false;
+    }
+}
+
+/**
+ * Creates a new service on the server.
+ * @param {object} payload - The data for the new service.
+ * @returns {Promise<boolean>} - True if successful, false otherwise.
+ */
+export async function createNewService(payload) {
+    const user = getCurrentUser();
+    if (!user) return false;
+
+    const idToken = await user.getIdToken();
+    try {
+        const response = await fetch('/.netlify/functions/create-service', {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${idToken}` },
+            body: JSON.stringify(payload)
+        });
+        if (!response.ok) throw new Error(await response.text());
+        return true;
+    } catch (error) {
+        console.error('Chyba při vytváření nové služby:', error);
+        alert('Nepodařilo se vytvořit novou službu.');
+        return false;
+    }
+}
