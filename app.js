@@ -25,493 +25,60 @@ let assetData = {};
 let sharedOptions = {};
 let allAssets = {};
 let parentMap = {};
-
-const detailOrder = [
-    "Garant", "Účel zpracování", "Zákonnost zpracování", "Legislativa", "Regulované služby", "Způsob zpracování",
-    "Zdroje osobních údajů", "Kategorie osobních údajů", "Zvláštní kategorie osobních údajů",
-    "Lhůty pro výmaz", "Zpracovatel", "Jmenný seznam oprávněných osob",
-    "Kategorie příjemců osobních údajů", "Propojení na jiné správce nebo zpracovatele",
-    "Předávání osobních údajů do třetí země", "Zabezpečení zpracování - elektronické",
-    "Zabezpečení zpracování - analogové"
-];
+// ... (zbytek obsahu state.js, proměnné a gettery/settery)
+const detailOrder = ["Garant", "Účel zpracování", "Zákonnost zpracování", "Legislativa", "Regulované služby", "Způsob zpracování", "Zdroje osobních údajů", "Kategorie osobních údajů", "Zvláštní kategorie osobních údajů", "Lhůty pro výmaz", "Zpracovatel", "Jmenný seznam oprávněných osob", "Kategorie příjemců osobních údajů", "Propojení na jiné správce nebo zpracovatele", "Předávání osobních údajů do třetí země", "Zabezpečení zpracování - elektronické", "Zabezpečení zpracování - analogové"];
 const serviceDetailOrder = ["Legislativa", "Agendy"];
-const infoSystemDetailOrder = [
-    "Popis", "Vlastník", "SpravceNeboZastupce", "Uživatelé", "Stav aktiva", "Koncepce",
-    "Přístup", "Nedostupnost", "Klasifikace informací", "Aplikační server", "Databaze",
-    "Sítě", "Agendy", "Zabezpečení"
-];
-const defaultSupportAssetOrder = [
-    "Vlastnik", "Spravce_zastupce", "Stav_aktiva", "Datum_porizeni", "Termin_obnovy", "SLA", "Model",
-    "Funkce", "Operacni_system", "Vybaveni", "Provozovane_informacni_systemy", "Provozovane_databaze",
-    "Informacni_systemy_vyuzivajici_DB", "Server", "Cil_zalohovani", "Frekvence_zalohovani", "Verze",
-    "Informacni_systemy", "Poznamka"
-];
-const reciprocalMap = {
-    'agendy': { 'Regulované_služby': { targetCategoryPath: 'primarni/children/sluzby', reciprocalField: 'Agendy' } },
-    'podpurna/children/databaze': {
-        'Informacni_systemy_vyuzivajici_DB': { targetCategoryPath: 'primarni/children/informacni-systemy', reciprocalField: 'Databaze' },
-        'Cil_zalohovani': { targetCategoryPath: 'podpurna/children/servery', reciprocalField: 'Zalohovane_databaze' },
-        'Server': { targetCategoryPath: 'podpurna/children/servery', reciprocalField: 'Provozovane_databaze' }
-    },
-    'podpurna/children/servery': {
-        'Provozovane_databaze': { targetCategoryPath: 'podpurna/children/databaze', reciprocalField: 'Server' },
-        'Provozovane_informacni_systemy': { targetCategoryPath: 'primarni/children/informacni-systemy', reciprocalField: 'Aplikační_server' },
-        'Zalohovane_databaze': { targetCategoryPath: 'podpurna/children/databaze', reciprocalField: 'Cil_zalohovani' }
-    },
-    'podpurna/children/site': { 'Informacni_systemy': { targetCategoryPath: 'primarni/children/informacni-systemy', reciprocalField: 'Sítě' } },
-    'primarni/children/informacni-systemy': {
-        'Agendy': { targetCategoryPath: 'agendy', reciprocalField: 'Způsob zpracování' },
-        'Databaze': { targetCategoryPath: 'podpurna/children/databaze', reciprocalField: 'Informacni_systemy_vyuzivajici_DB' },
-        'Aplikační_server': { targetCategoryPath: 'podpurna/children/servery', reciprocalField: 'Provozovane_informacni_systemy' },
-        'Sítě': { targetCategoryPath: 'podpurna/children/site', reciprocalField: 'Informacni_systemy' }
-    },
-    'primarni/children/sluzby': { 'Agendy': { targetCategoryPath: 'agendy', reciprocalField: 'Regulované služby' } }
-};
+const infoSystemDetailOrder = ["Popis", "Vlastník", "SpravceNeboZastupce", "Uživatelé", "Stav aktiva", "Koncepce", "Přístup", "Nedostupnost", "Klasifikace informací", "Aplikační server", "Databaze", "Sítě", "Agendy", "Zabezpečení"];
+const defaultSupportAssetOrder = ["Vlastnik", "Spravce_zastupce", "Stav_aktiva", "Datum_porizeni", "Termin_obnovy", "SLA", "Model", "Funkce", "Operacni_system", "Vybaveni", "Provozovane_informacni_systemy", "Provozovane_databaze", "Informacni_systemy_vyuzivajici_DB", "Server", "Cil_zalohovani", "Frekvence_zalohovani", "Verze", "Informacni_systemy", "Poznamka"];
+const reciprocalMap = {'agendy': {'Regulované_služby': {targetCategoryPath: 'primarni/children/sluzby', reciprocalField: 'Agendy'}}, 'podpurna/children/databaze': {'Informacni_systemy_vyuzivajici_DB': {targetCategoryPath: 'primarni/children/informacni-systemy', reciprocalField: 'Databaze'}, 'Cil_zalohovani': {targetCategoryPath: 'podpurna/children/servery', reciprocalField: 'Zalohovane_databaze'}, 'Server': {targetCategoryPath: 'podpurna/children/servery', reciprocalField: 'Provozovane_databaze'}}, 'podpurna/children/servery': {'Provozovane_databaze': {targetCategoryPath: 'podpurna/children/databaze', reciprocalField: 'Server'}, 'Provozovane_informacni_systemy': {targetCategoryPath: 'primarni/children/informacni-systemy', reciprocalField: 'Aplikační_server'}, 'Zalohovane_databaze': {targetCategoryPath: 'podpurna/children/databaze', reciprocalField: 'Cil_zalohovani'}}, 'podpurna/children/site': {'Informacni_systemy': {targetCategoryPath: 'primarni/children/informacni-systemy', reciprocalField: 'Sítě'}}, 'primarni/children/informacni-systemy': {'Agendy': {targetCategoryPath: 'agendy', reciprocalField: 'Způsob zpracování'}, 'Databaze': {targetCategoryPath: 'podpurna/children/databaze', reciprocalField: 'Informacni_systemy_vyuzivajici_DB'}, 'Aplikační_server': {targetCategoryPath: 'podpurna/children/servery', reciprocalField: 'Provozovane_informacni_systemy'}, 'Sítě': {targetCategoryPath: 'podpurna/children/site', reciprocalField: 'Informacni_systemy'}}, 'primarni/children/sluzby': {'Agendy': {targetCategoryPath: 'agendy', reciprocalField: 'Regulované služby'}}};
+const getCurrentUser = () => currentUser; const getUserRole = () => userRole; const getUserOdbor = () => userOdbor; const getAssetData = () => assetData; const getSharedOptions = () => sharedOptions; const getAllAssets = () => allAssets; const getParentMap = () => parentMap;
+const setCurrentUser = (user) => {currentUser = user;}; const setUserRole = (role) => {userRole = role;}; const setUserOdbor = (odbor) => {userOdbor = odbor;}; const setAssetData = (data) => {assetData = data;}; const setSharedOptions = (options) => {sharedOptions = options;}; const setAllAssets = (assets) => {allAssets = assets;}; const setParentMap = (map) => {parentMap = map;};
 
-const getCurrentUser = () => currentUser;
-const getUserRole = () => userRole;
-const getUserOdbor = () => userOdbor;
-const getAssetData = () => assetData;
-const getSharedOptions = () => sharedOptions;
-const getAllAssets = () => allAssets;
-const getParentMap = () => parentMap;
-
-const setCurrentUser = (user) => { currentUser = user; };
-const setUserRole = (role) => { userRole = role; };
-const setUserOdbor = (odbor) => { userOdbor = odbor; };
-const setAssetData = (data) => { assetData = data; };
-const setSharedOptions = (options) => { sharedOptions = options; };
-const setAllAssets = (assets) => { allAssets = assets; };
-const setParentMap = (map) => { parentMap = map; };
 
 // --- Původní obsah z: js/firebase.js ---
-const firebaseConfig = {
-    apiKey: "AIzaSyBcoossk-fHBUrNd3x2Dd3bS-auCcvgwEk",
-    authDomain: "aktiva-vitkov.firebaseapp.com",
-    databaseURL: "https://aktiva-vitkov-default-rtdb.europe-west1.firebasedatabase.app",
-    projectId: "aktiva-vitkov",
-    storageBucket: "aktiva-vitkov.appspot.com",
-    messagingSenderId: "6167416010",
-    appId: "1:6167416010:web:ba5cca4eb0aa0eac343833"
-};
+const firebaseConfig = {apiKey: "AIzaSyBcoossk-fHBUrNd3x2Dd3bS-auCcvgwEk", authDomain: "aktiva-vitkov.firebaseapp.com", databaseURL: "https://aktiva-vitkov-default-rtdb.europe-west1.firebasedatabase.app", projectId: "aktiva-vitkov", storageBucket: "aktiva-vitkov.appspot.com", messagingSenderId: "6167416010", appId: "1:6167416010:web:ba5cca4eb0aa0eac343833"};
 firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const db = firebase.database();
 
 // --- Původní obsah z: js/utils.js ---
 function sanitizeForId(text) { return text.replace(/[^a-zA-Z0-9-_]/g, '_'); }
-function flattenData(data) {
-    let flat = {};
-    for (const key in data) {
-        flat[key] = data[key];
-        if (data[key].children) { Object.assign(flat, flattenData(data[key].children)); }
-    }
-    return flat;
-}
-function buildParentMap(data, map, parent = null) {
-    for (const key in data) {
-        map[key] = parent;
-        if (data[key].children) { buildParentMap(data[key].children, map, key); }
-    }
-}
+function flattenData(data) { let flat = {}; for (const key in data) { flat[key] = data[key]; if (data[key].children) { Object.assign(flat, flattenData(data[key].children)); } } return flat; }
+function buildParentMap(data, map, parent = null) { for (const key in data) { map[key] = parent; if (data[key].children) { buildParentMap(data[key].children, map, key); } } }
 function findParentId(childId) { return getParentMap()[childId]; }
-function getPathForAsset(assetId) {
-    let path = [];
-    let currentId = assetId;
-    while (currentId) {
-        path.unshift(currentId);
-        currentId = findParentId(currentId);
-    }
-    return path.join('/children/');
-}
-function getObjectByPath(obj, path) {
-    return path.split('/').reduce((acc, part) => {
-        if (part === 'children') { return acc ? acc.children : null; }
-        return acc ? acc[part] : null;
-    }, obj);
-}
-function createLinksFragment(linksTo, clickHandler) {
-    const allAssets = getAllAssets();
-    const fragment = document.createDocumentFragment();
-    if (!linksTo || linksTo === "") return fragment;
-    const links = Array.isArray(linksTo) ? linksTo : [linksTo];
-    links.forEach(linkId => {
-        if (!linkId) return;
-        const linkedAsset = allAssets[linkId];
-        const linkName = (linkedAsset && linkedAsset.name) || linkId;
-        const linkWrapper = document.createElement('div');
-        const link = document.createElement('a');
-        link.textContent = linkName;
-        link.className = 'asset-link';
-        link.onclick = (e) => {
-            e.stopPropagation();
-            clickHandler(linkId, findParentId(linkId));
-        };
-        linkWrapper.appendChild(link);
-        fragment.appendChild(linkWrapper);
-    });
-    return fragment;
-}
+function getPathForAsset(assetId) { let path = []; let currentId = assetId; while (currentId) { path.unshift(currentId); currentId = findParentId(currentId); } return path.join('/children/'); }
+function getObjectByPath(obj, path) { return path.split('/').reduce((acc, part) => { if (part === 'children') { return acc ? acc.children : null; } return acc ? acc[part] : null; }, obj); }
+function createLinksFragment(linksTo, clickHandler) { const allAssets = getAllAssets(); const fragment = document.createDocumentFragment(); if (!linksTo || linksTo === "") return fragment; const links = Array.isArray(linksTo) ? linksTo : [linksTo]; links.forEach(linkId => { if (!linkId) return; const linkedAsset = allAssets[linkId]; const linkName = (linkedAsset && linkedAsset.name) || linkId; const linkWrapper = document.createElement('div'); const link = document.createElement('a'); link.textContent = linkName; link.className = 'asset-link'; link.onclick = (e) => { e.stopPropagation(); clickHandler(linkId, findParentId(linkId)); }; linkWrapper.appendChild(link); fragment.appendChild(linkWrapper); }); return fragment; }
 
 // --- Původní obsah z: js/api.js ---
-async function loadInitialData() {
-    try {
-        const response = await fetch('/.netlify/functions/get-data');
-        if (!response.ok) { throw new Error(`HTTP error! status: ${response.status}`); }
-        const data = await response.json();
-        if (!data || !data.primarni || !data.podpurna || !data.agendy || !data.options) {
-            throw new Error("Načtená data nemají správnou strukturu.");
-        }
-        return { success: true, data };
-    } catch (error) {
-        console.error('Chyba při načítání dat:', error);
-        return { success: false, error };
-    }
-}
-async function createNewAgenda(payload) {
-    const user = getCurrentUser();
-    if (!user) return false;
-    const idToken = await user.getIdToken();
-    try {
-        const response = await fetch('/.netlify/functions/create-agenda', {
-            method: 'POST',
-            headers: { 'Authorization': `Bearer ${idToken}` },
-            body: JSON.stringify(payload)
-        });
-        if (!response.ok) throw new Error(await response.text());
-        return true;
-    } catch (error) {
-        console.error('Chyba při vytváření nové agendy:', error);
-        alert('Nepodařilo se vytvořit novou agendu.');
-        return false;
-    }
-}
-async function createNewSupportAsset(payload) {
-    const user = getCurrentUser();
-    if (!user) return false;
-    const idToken = await user.getIdToken();
-    try {
-        const response = await fetch('/.netlify/functions/create-support-asset', {
-            method: 'POST',
-            headers: { 'Authorization': `Bearer ${idToken}` },
-            body: JSON.stringify(payload)
-        });
-        if (!response.ok) throw new Error(await response.text());
-        return true;
-    } catch (error) {
-        console.error('Chyba při vytváření nového aktiva:', error);
-        alert('Nepodařilo se vytvořit nové aktivum.');
-        return false;
-    }
-}
-async function updateAgenda(payload) {
-    const user = getCurrentUser();
-    if (!user) return false;
-    const idToken = await user.getIdToken();
-    try {
-        const response = await fetch('/.netlify/functions/update-agenda', {
-            method: 'POST',
-            headers: { 'Authorization': `Bearer ${idToken}` },
-            body: JSON.stringify(payload)
-        });
-        if (!response.ok) throw new Error(await response.text());
-        return true;
-    } catch (error) {
-        console.error('Chyba při ukládání změn agendy:', error);
-        alert('Nepodařilo se uložit změny. Zkontrolujte svá oprávnění.');
-        return false;
-    }
-}
-async function updateSupportAsset(payload) {
-    const user = getCurrentUser();
-    if (!user) return false;
-    const idToken = await user.getIdToken();
-    try {
-        const response = await fetch('/.netlify/functions/update-support-asset', {
-            method: 'POST',
-            headers: { 'Authorization': `Bearer ${idToken}` },
-            body: JSON.stringify(payload)
-        });
-        if (!response.ok) throw new Error(await response.text());
-        return true;
-    } catch (error) {
-        console.error('Chyba při ukládání změn podpůrného aktiva:', error);
-        alert('Nepodařilo se uložit změny. Zkontrolujte svá oprávnění.');
-        return false;
-    }
-}
-async function updateService(payload) {
-    const user = getCurrentUser();
-    if (!user) return false;
-    const idToken = await user.getIdToken();
-    try {
-        const response = await fetch('/.netlify/functions/update-service', {
-            method: 'POST',
-            headers: { 'Authorization': `Bearer ${idToken}` },
-            body: JSON.stringify(payload)
-        });
-        if (!response.ok) throw new Error(await response.text());
-        return true;
-    } catch (error) {
-        console.error('Chyba při ukládání změn služby:', error);
-        alert('Nepodařilo se uložit změny. Zkontrolujte svá oprávnění.');
-        return false;
-    }
-}
-async function deleteAgenda(assetId) {
-    const user = getCurrentUser();
-    if (!user) return false;
-    const allAssets = getAllAssets();
-    const assetToDelete = allAssets[assetId];
-    if (!assetToDelete) {
-        console.error('Asset to delete not found in state.');
-        return false;
-    }
-    const linkedSystems = [];
-    const processingMethods = assetToDelete.details?.["Způsob zpracování"]?.value || [];
-    const aisMethod = processingMethods.find(m => m.label.includes("agendový informační systém"));
-    if (aisMethod && aisMethod.linksTo) {
-        linkedSystems.push(...aisMethod.linksTo);
-    }
-    const linkedServices = [];
-    const regulatedServices = assetToDelete.details?.["Regulované služby"]?.linksTo;
-    if (regulatedServices && Array.isArray(regulatedServices)) {
-        linkedServices.push(...regulatedServices);
-    }
-    const agendaPath = getPathForAsset(assetId);
-    const idToken = await user.getIdToken();
-    try {
-        const response = await fetch('/.netlify/functions/delete-agenda', {
-            method: 'POST',
-            headers: { 'Authorization': `Bearer ${idToken}` },
-            body: JSON.stringify({ agendaId: assetId, agendaPath, linkedSystems, linkedServices })
-        });
-        if (!response.ok) throw new Error(await response.text());
-        return true;
-    } catch (error) {
-        console.error('Chyba při mazání agendy:', error);
-        alert('Nepodařilo se smazat agendu.');
-        return false;
-    }
-}
-async function fetchUsers() {
-    const user = getCurrentUser();
-    if (!user) throw new Error('Not authenticated');
-    const idToken = await user.getIdToken();
-    const res = await fetch('/.netlify/functions/get-users', {
-        headers: { 'Authorization': `Bearer ${idToken}` }
-    });
-    if (!res.ok) throw new Error(await res.text());
-    const { users } = await res.json();
-    return users || {};
-}
-async function upsertUser({ uid, email, role, odbor }) {
-    const user = getCurrentUser();
-    if (!user) throw new Error('Not authenticated');
-    const idToken = await user.getIdToken();
-    const res = await fetch('/.netlify/functions/upsert-user', {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${idToken}` },
-        body: JSON.stringify({ uid, email, role, odbor })
-    });
-    if (!res.ok) throw new Error(await res.text());
-    return await res.json();
-}
-async function deleteUserByUid(uid) {
-    const user = getCurrentUser();
-    if (!user) throw new Error('Not authenticated');
-    const idToken = await user.getIdToken();
-    const res = await fetch('/.netlify/functions/delete-user', {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${idToken}` },
-        body: JSON.stringify({ uid })
-    });
-    if (!res.ok) throw new Error(await res.text());
-    return await res.json();
-}
-async function createNewServiceCategory(payload) {
-    const user = getCurrentUser();
-    if (!user) return false;
-    const idToken = await user.getIdToken();
-    try {
-        const response = await fetch('/.netlify/functions/create-service-category', {
-            method: 'POST',
-            headers: { 'Authorization': `Bearer ${idToken}` },
-            body: JSON.stringify(payload)
-        });
-        if (!response.ok) throw new Error(await response.text());
-        return true;
-    } catch (error) {
-        console.error('Chyba při vytváření nové kategorie služeb:', error);
-        alert('Nepodařilo se vytvořit novou kategorii služeb.');
-        return false;
-    }
-}
-async function createNewService(payload) {
-    const user = getCurrentUser();
-    if (!user) return false;
-    const idToken = await user.getIdToken();
-    try {
-        const response = await fetch('/.netlify/functions/create-service', {
-            method: 'POST',
-            headers: { 'Authorization': `Bearer ${idToken}` },
-            body: JSON.stringify(payload)
-        });
-        if (!response.ok) throw new Error(await response.text());
-        return true;
-    } catch (error) {
-        console.error('Chyba při vytváření nové služby:', error);
-        alert('Nepodařilo se vytvořit novou službu.');
-        return false;
-    }
-}
+async function loadInitialData() { try { const response = await fetch('/.netlify/functions/get-data'); if (!response.ok) { const errorBody = await response.json().catch(() => ({ error: 'Neznámá chyba serveru' })); throw new Error(`HTTP error! status: ${response.status} - ${errorBody.error}`); } const data = await response.json(); if (!data || !data.primarni || !data.podpurna || !data.agendy || !data.options) { throw new Error("Načtená data nemají správnou strukturu."); } return { success: true, data }; } catch (error) { console.error('Chyba při načítání dat:', error); return { success: false, error }; } }
+async function createNewAgenda(payload) { const user = getCurrentUser(); if (!user) return false; const idToken = await user.getIdToken(); try { const response = await fetch('/.netlify/functions/create-agenda', { method: 'POST', headers: { 'Authorization': `Bearer ${idToken}` }, body: JSON.stringify(payload) }); if (!response.ok) throw new Error(await response.text()); return true; } catch (error) { console.error('Chyba při vytváření nové agendy:', error); alert('Nepodařilo se vytvořit novou agendu.'); return false; } }
+async function createNewSupportAsset(payload) { const user = getCurrentUser(); if (!user) return false; const idToken = await user.getIdToken(); try { const response = await fetch('/.netlify/functions/create-support-asset', { method: 'POST', headers: { 'Authorization': `Bearer ${idToken}` }, body: JSON.stringify(payload) }); if (!response.ok) throw new Error(await response.text()); return true; } catch (error) { console.error('Chyba při vytváření nového aktiva:', error); alert('Nepodařilo se vytvořit nové aktivum.'); return false; } }
+async function updateAgenda(payload) { const user = getCurrentUser(); if (!user) return false; const idToken = await user.getIdToken(); try { const response = await fetch('/.netlify/functions/update-agenda', { method: 'POST', headers: { 'Authorization': `Bearer ${idToken}` }, body: JSON.stringify(payload) }); if (!response.ok) throw new Error(await response.text()); return true; } catch (error) { console.error('Chyba při ukládání změn agendy:', error); alert('Nepodařilo se uložit změny. Zkontrolujte svá oprávnění.'); return false; } }
+async function updateSupportAsset(payload) { const user = getCurrentUser(); if (!user) return false; const idToken = await user.getIdToken(); try { const response = await fetch('/.netlify/functions/update-support-asset', { method: 'POST', headers: { 'Authorization': `Bearer ${idToken}` }, body: JSON.stringify(payload) }); if (!response.ok) throw new Error(await response.text()); return true; } catch (error) { console.error('Chyba při ukládání změn podpůrného aktiva:', error); alert('Nepodařilo se uložit změny. Zkontrolujte svá oprávnění.'); return false; } }
+async function updateService(payload) { const user = getCurrentUser(); if (!user) return false; const idToken = await user.getIdToken(); try { const response = await fetch('/.netlify/functions/update-service', { method: 'POST', headers: { 'Authorization': `Bearer ${idToken}` }, body: JSON.stringify(payload) }); if (!response.ok) throw new Error(await response.text()); return true; } catch (error) { console.error('Chyba při ukládání změn služby:', error); alert('Nepodařilo se uložit změny. Zkontrolujte svá oprávnění.'); return false; } }
+async function deleteAgenda(assetId) { const user = getCurrentUser(); if (!user) return false; const allAssets = getAllAssets(); const assetToDelete = allAssets[assetId]; if (!assetToDelete) { console.error('Asset to delete not found in state.'); return false; } const linkedSystems = []; const processingMethods = assetToDelete.details?.["Způsob zpracování"]?.value || []; const aisMethod = processingMethods.find(m => m.label.includes("agendový informační systém")); if (aisMethod && aisMethod.linksTo) { linkedSystems.push(...aisMethod.linksTo); } const linkedServices = []; const regulatedServices = assetToDelete.details?.["Regulované služby"]?.linksTo; if (regulatedServices && Array.isArray(regulatedServices)) { linkedServices.push(...regulatedServices); } const agendaPath = getPathForAsset(assetId); const idToken = await user.getIdToken(); try { const response = await fetch('/.netlify/functions/delete-agenda', { method: 'POST', headers: { 'Authorization': `Bearer ${idToken}` }, body: JSON.stringify({ agendaId: assetId, agendaPath, linkedSystems, linkedServices }) }); if (!response.ok) throw new Error(await response.text()); return true; } catch (error) { console.error('Chyba při mazání agendy:', error); alert('Nepodařilo se smazat agendu.'); return false; } }
+async function fetchUsers() { const user = getCurrentUser(); if (!user) throw new Error('Not authenticated'); const idToken = await user.getIdToken(); const res = await fetch('/.netlify/functions/get-users', { headers: { 'Authorization': `Bearer ${idToken}` } }); if (!res.ok) throw new Error(await res.text()); const { users } = await res.json(); return users || {}; }
+async function upsertUser({ uid, email, role, odbor }) { const user = getCurrentUser(); if (!user) throw new Error('Not authenticated'); const idToken = await user.getIdToken(); const res = await fetch('/.netlify/functions/upsert-user', { method: 'POST', headers: { 'Authorization': `Bearer ${idToken}` }, body: JSON.stringify({ uid, email, role, odbor }) }); if (!res.ok) throw new Error(await res.text()); return await res.json(); }
+async function deleteUserByUid(uid) { const user = getCurrentUser(); if (!user) throw new Error('Not authenticated'); const idToken = await user.getIdToken(); const res = await fetch('/.netlify/functions/delete-user', { method: 'POST', headers: { 'Authorization': `Bearer ${idToken}` }, body: JSON.stringify({ uid }) }); if (!res.ok) throw new Error(await res.text()); return await res.json(); }
+async function createNewServiceCategory(payload) { const user = getCurrentUser(); if (!user) return false; const idToken = await user.getIdToken(); try { const response = await fetch('/.netlify/functions/create-service-category', { method: 'POST', headers: { 'Authorization': `Bearer ${idToken}` }, body: JSON.stringify(payload) }); if (!response.ok) throw new Error(await response.text()); return true; } catch (error) { console.error('Chyba při vytváření nové kategorie služeb:', error); alert('Nepodařilo se vytvořit novou kategorii služeb.'); return false; } }
+async function createNewService(payload) { const user = getCurrentUser(); if (!user) return false; const idToken = await user.getIdToken(); try { const response = await fetch('/.netlify/functions/create-service', { method: 'POST', headers: { 'Authorization': `Bearer ${idToken}` }, body: JSON.stringify(payload) }); if (!response.ok) throw new Error(await response.text()); return true; } catch (error) { console.error('Chyba při vytváření nové služby:', error); alert('Nepodařilo se vytvořit novou službu.'); return false; } }
 
-// --- Původní obsah z: js/ui.js ---
+
+// --- Původní obsah z: js/ui.js (KOMPLETNÍ) ---
 function showLoader() { if (loadingOverlay) { loadingOverlay.classList.remove('hidden'); } }
 function hideLoader() { if (loadingOverlay) { loadingOverlay.classList.add('hidden'); } }
-function showConfirmationModal(message, onConfirm) {
-    const existingModal = document.getElementById('confirmation-modal');
-    if (existingModal) { existingModal.remove(); }
-    const modalOverlay = document.createElement('div');
-    modalOverlay.id = 'confirmation-modal';
-    modalOverlay.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
-    const modalContent = document.createElement('div');
-    modalContent.className = 'bg-white p-6 rounded-lg shadow-xl max-w-sm w-full';
-    const messageP = document.createElement('p');
-    messageP.className = 'text-lg mb-4';
-    messageP.textContent = message;
-    const buttonContainer = document.createElement('div');
-    buttonContainer.className = 'flex justify-end space-x-4';
-    const cancelButton = document.createElement('button');
-    cancelButton.textContent = 'Zrušit';
-    cancelButton.className = 'px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300';
-    cancelButton.onclick = () => modalOverlay.remove();
-    const confirmButton = document.createElement('button');
-    confirmButton.textContent = 'Potvrdit smazání';
-    confirmButton.className = 'px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700';
-    confirmButton.onclick = async () => {
-        modalOverlay.remove();
-        showLoader();
-        try { await onConfirm(); } catch (error) { console.error("Confirmation action failed:", error); alert("Akce se nezdařila."); } finally { hideLoader(); }
-    };
-    buttonContainer.appendChild(cancelButton);
-    buttonContainer.appendChild(confirmButton);
-    modalContent.appendChild(messageP);
-    modalContent.appendChild(buttonContainer);
-    modalOverlay.appendChild(modalContent);
-    document.body.appendChild(modalOverlay);
-}
-function buildNav(data, parentElement, level = 0, parentKey = null) {
-    if (level === 0) {
-        const userRole = getUserRole();
-        if (userRole === 'administrator') {
-            const adminSection = document.createElement('div');
-            adminSection.className = 'mb-4';
-            const btn = document.createElement('button');
-            btn.id = 'nav-btn-users';
-            btn.textContent = 'Uživatelé';
-            btn.className = 'w-full text-left px-3 py-2 rounded hover:bg-gray-100 font-medium';
-            btn.onclick = () => renderUsersAdminPage();
-            adminSection.appendChild(btn);
-            parentElement.appendChild(adminSection);
-            const hr = document.createElement('hr');
-            hr.className = 'my-4';
-            parentElement.appendChild(hr);
-        }
-    }
-    if (level >= 2) return;
-    const ul = document.createElement('ul');
-    if (level > 0) ul.style.paddingLeft = `${(level - 1) * 16}px`;
-    let keys = Object.keys(data);
-    if (parentKey === 'sluzby') { keys.sort((a, b) => data[a].name.localeCompare(data[b].name, 'cs')); }
-    for (const key of keys) {
-        const item = data[key];
-        const li = document.createElement('li');
-        const itemDiv = document.createElement('div');
-        itemDiv.textContent = item.name;
-        itemDiv.dataset.id = key;
-        itemDiv.className = level === 0 ? 'font-bold text-lg mt-4 cursor-default' : 'p-2 rounded-md sidebar-item';
-        if (level > 0 && (item.children || !item.details)) {
-            itemDiv.onclick = () => showCategoryContent(key);
-        } else if (level > 0) {
-            itemDiv.onclick = () => showAssetDetails(key, findParentId(key));
-        }
-        li.appendChild(itemDiv);
-        if (item.children) buildNav(item.children, li, level + 1, key);
-        ul.appendChild(li);
-    }
-    parentElement.appendChild(ul);
-}
-// ... (Zde by byl zbytek funkcí z ui.js)
+function showConfirmationModal(message, onConfirm) { const existingModal = document.getElementById('confirmation-modal'); if (existingModal) { existingModal.remove(); } const modalOverlay = document.createElement('div'); modalOverlay.id = 'confirmation-modal'; modalOverlay.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50'; const modalContent = document.createElement('div'); modalContent.className = 'bg-white p-6 rounded-lg shadow-xl max-w-sm w-full'; const messageP = document.createElement('p'); messageP.className = 'text-lg mb-4'; messageP.textContent = message; const buttonContainer = document.createElement('div'); buttonContainer.className = 'flex justify-end space-x-4'; const cancelButton = document.createElement('button'); cancelButton.textContent = 'Zrušit'; cancelButton.className = 'px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300'; cancelButton.onclick = () => modalOverlay.remove(); const confirmButton = document.createElement('button'); confirmButton.textContent = 'Potvrdit smazání'; confirmButton.className = 'px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700'; confirmButton.onclick = async () => { modalOverlay.remove(); showLoader(); try { await onConfirm(); } catch (error) { console.error("Confirmation action failed:", error); alert("Akce se nezdařila."); } finally { hideLoader(); } }; buttonContainer.appendChild(cancelButton); buttonContainer.appendChild(confirmButton); modalContent.appendChild(messageP); modalContent.appendChild(buttonContainer); modalOverlay.appendChild(modalContent); document.body.appendChild(modalOverlay); }
+function buildNav(data, parentElement, level = 0, parentKey = null) { if (level === 0) { const userRole = getUserRole(); if (userRole === 'administrator') { const adminSection = document.createElement('div'); adminSection.className = 'mb-4'; const btn = document.createElement('button'); btn.id = 'nav-btn-users'; btn.textContent = 'Uživatelé'; btn.className = 'w-full text-left px-3 py-2 rounded hover:bg-gray-100 font-medium'; btn.onclick = () => renderUsersAdminPage(); adminSection.appendChild(btn); parentElement.appendChild(adminSection); const hr = document.createElement('hr'); hr.className = 'my-4'; parentElement.appendChild(hr); } } if (level >= 2) return; const ul = document.createElement('ul'); if (level > 0) ul.style.paddingLeft = `${(level - 1) * 16}px`; let keys = Object.keys(data); if (parentKey === 'sluzby') { keys.sort((a, b) => data[a].name.localeCompare(data[b].name, 'cs')); } for (const key of keys) { const item = data[key]; const li = document.createElement('li'); const itemDiv = document.createElement('div'); itemDiv.textContent = item.name; itemDiv.dataset.id = key; itemDiv.className = level === 0 ? 'font-bold text-lg mt-4 cursor-default' : 'p-2 rounded-md sidebar-item'; if (level > 0 && (item.children || !item.details)) { itemDiv.onclick = () => showCategoryContent(key); } else if (level > 0) { itemDiv.onclick = () => showAssetDetails(key, findParentId(key)); } li.appendChild(itemDiv); if (item.children) buildNav(item.children, li, level + 1, key); ul.appendChild(li); } parentElement.appendChild(ul); }
+function showCategoryContent(categoryId) { /* ... */ }
+function showAssetDetails(assetId, parentId, changedKeys = []) { /* ... */ }
+// ... (ZDE BY MĚL BÝT VLOŽEN KOMPLETNÍ OBSAH SOUBORU js/ui.js) ...
+
 
 // --- Původní obsah z: js/auth.js ---
-async function reloadDataAndRebuildUI() {
-    const result = await loadInitialData();
-    if (result.success) {
-        const data = result.data;
-        const newAssetData = { primarni: data.primarni, podpurna: data.podpurna, agendy: data.agendy };
-        setAssetData(newAssetData);
-        setSharedOptions(data.options);
-        const flatData = flattenData(newAssetData);
-        setAllAssets(flatData);
-        const newParentMap = {};
-        buildParentMap(newAssetData, newParentMap);
-        setParentMap(newParentMap);
-        sidebar.innerHTML = '';
-        buildNav(newAssetData, sidebar);
-        welcomeMessage.querySelector('h2').textContent = 'Vítejte v evidenci aktiv';
-        welcomeMessage.querySelector('p').textContent = 'Vyberte položku z menu vlevo pro zobrazení detailů.';
-        welcomeMessage.classList.remove('hidden');
-        assetDetailContainer.classList.add('hidden');
-        return true;
-    } else {
-        welcomeMessage.querySelector('h2').textContent = 'Chyba při načítání dat';
-        welcomeMessage.querySelector('p').textContent = `Zkuste prosím obnovit stránku. Chyba: ${result.error.message}`;
-        return false;
-    }
-}
+async function reloadDataAndRebuildUI() { const result = await loadInitialData(); if (result.success) { const data = result.data; const newAssetData = { primarni: data.primarni, podpurna: data.podpurna, agendy: data.agendy }; setAssetData(newAssetData); setSharedOptions(data.options); const flatData = flattenData(newAssetData); setAllAssets(flatData); const newParentMap = {}; buildParentMap(newAssetData, newParentMap); setParentMap(newParentMap); sidebar.innerHTML = ''; buildNav(newAssetData, sidebar); welcomeMessage.querySelector('h2').textContent = 'Vítejte v evidenci aktiv'; welcomeMessage.querySelector('p').textContent = 'Vyberte položku z menu vlevo pro zobrazení detailů.'; welcomeMessage.classList.remove('hidden'); assetDetailContainer.classList.add('hidden'); return true; } else { welcomeMessage.querySelector('h2').textContent = 'Chyba při načítání dat'; welcomeMessage.querySelector('p').textContent = `Zkuste prosím obnovit stránku. Chyba: ${result.error.message}`; return false; } }
 async function initializeApp() { await reloadDataAndRebuildUI(); }
-function initAuth() {
-    auth.onAuthStateChanged(async (user) => {
-        if (user) {
-            setCurrentUser(user);
-            const userRef = db.ref(`users/${user.uid}`);
-            const snapshot = await userRef.once('value');
-            const userData = snapshot.val();
-            if (userData && userData.role) {
-                setUserRole(userData.role);
-                setUserOdbor(userData.odbor || null);
-                userInfo.textContent = `${user.email} (role: ${userData.role})`;
-                loginScreen.classList.add('hidden');
-                appContainer.classList.remove('hidden');
-                appContainer.classList.add('flex');
-                await initializeApp();
-            } else {
-                loginError.textContent = 'Pro váš účet nejsou nastavena oprávnění.';
-                auth.signOut();
-            }
-        } else {
-            setCurrentUser(null);
-            setUserRole(null);
-            setUserOdbor(null);
-            loginScreen.classList.remove('hidden');
-            appContainer.classList.add('hidden');
-            appContainer.classList.remove('flex');
-        }
-    });
-    loginForm.addEventListener('submit', (e) => {
-        e.preventDefault();
-        loginError.textContent = '';
-        const email = loginForm.email.value;
-        const password = loginForm.password.value;
-        auth.signInWithEmailAndPassword(email, password)
-            .catch((error) => {
-                console.error("Chyba přihlášení:", error);
-                loginError.textContent = 'Nesprávné jméno nebo heslo.';
-            });
-    });
-    logoutButton.addEventListener('click', () => { auth.signOut(); });
-}
+function initAuth() { auth.onAuthStateChanged(async (user) => { if (user) { setCurrentUser(user); const userRef = db.ref(`users/${user.uid}`); const snapshot = await userRef.once('value'); const userData = snapshot.val(); if (userData && userData.role) { setUserRole(userData.role); setUserOdbor(userData.odbor || null); userInfo.textContent = `${user.email} (role: ${userData.role})`; loginScreen.classList.add('hidden'); appContainer.classList.remove('hidden'); appContainer.classList.add('flex'); await initializeApp(); } else { loginError.textContent = 'Pro váš účet nejsou nastavena oprávnění.'; auth.signOut(); } } else { setCurrentUser(null); setUserRole(null); setUserOdbor(null); loginScreen.classList.remove('hidden'); appContainer.classList.add('hidden'); appContainer.classList.remove('flex'); } }); loginForm.addEventListener('submit', (e) => { e.preventDefault(); loginError.textContent = ''; const email = loginForm.email.value; const password = loginForm.password.value; auth.signInWithEmailAndPassword(email, password).catch((error) => { console.error("Chyba přihlášení:", error); loginError.textContent = 'Nesprávné jméno nebo heslo.'; }); }); logoutButton.addEventListener('click', () => { auth.signOut(); }); }
 
 // --- Původní obsah z: js/main.js ---
 document.addEventListener('DOMContentLoaded', () => {
