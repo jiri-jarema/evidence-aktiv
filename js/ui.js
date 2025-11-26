@@ -1213,12 +1213,14 @@ function renderLinkSelector(container, assetId, key, detail, context = {}) {
 
     const updateDropdown = (selectEl, currentSelection) => {
         let assetCategoryPath;
-        if (context.isNewAgenda || key === "Agendy") { // Force 'agendy' path for new items or when linking to agendas
-            assetCategoryPath = 'agendy';
+        
+        // Determine the configuration path based on the asset path
+        // Special handling: If we are editing an Agenda (new or existing), the source config is in 'agendy'
+        if (assetPath.startsWith('agendy')) {
+             assetCategoryPath = 'agendy';
         } else {
-            assetCategoryPath = Object.keys(state.reciprocalMap).find(p => assetPath.startsWith(p));
-            if (assetPath.startsWith('agendy')) assetCategoryPath = 'agendy';
-            if (asset.type === 'jednotliva-sluzba') assetCategoryPath = 'primarni/children/sluzby';
+             // Find the matching key in reciprocalMap (e.g., 'primarni/children/informacni-systemy')
+             assetCategoryPath = Object.keys(state.reciprocalMap).find(p => assetPath.startsWith(p));
         }
 
         if (!assetCategoryPath) {
