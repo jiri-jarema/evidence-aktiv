@@ -34,6 +34,31 @@ async function verifyUser(authorization) {
     }
 }
 
+// Helper function to recursively find agenda path (same as in update-support-asset.js)
+async function findAgendaPath(agendaId) {
+    const agendyRef = db.ref('agendy');
+    const snapshot = await agendyRef.once('value');
+    const data = snapshot.val();
+    
+    function search(currentPath, currentNode) {
+        if (!currentNode) return null;
+        for (const key in currentNode) {
+            const newPath = currentPath ? `${currentPath}/${key}` : key;
+            if (key === agendaId) {
+                return newPath;
+            }
+            if (typeof currentNode[key] === 'object' && currentNode[key] && currentNode[key].children) {
+                const result = search(`${newPath}/children`, currentNode[key].children);
+                if (result) return result;
+            }
+        }
+        return null;
+    }
+    
+    const resultPath = search('children', data.children);
+    return resultPath ? `agendy/${resultPath}` : null;
+}
+
 exports.handler = async function(event, context) {
     if (event.httpMethod !== 'POST') {
         return { statusCode: 405, body: 'Method Not Allowed' };
@@ -54,7 +79,7 @@ exports.handler = async function(event, context) {
         // Set the new asset data
         updates[assetPath] = newAssetData;
 
-        // Handle reciprocal links to add
+        // Handle reciprocal links to add (Standard links)
         if (reciprocalLinks && reciprocalLinks.toAdd) {
             for (const link of reciprocalLinks.toAdd) {
                 const { targetPath, sourceId } = link;
@@ -65,6 +90,39 @@ exports.handler = async function(event, context) {
                     links.push(sourceId);
                 }
                 updates[targetPath] = links;
+            }
+        }
+
+        // Handle reciprocal links to Agendas (AIS context - special case for IS -> Agenda)
+        if (reciprocalLinks && reciprocalLinks.aisToAdd) {
+            // Need to extract the sourceId for the AIS link. It should be the ID of the new asset being created.
+            // Since aisToAdd is just an array of agenda IDs, we assume the source is the new asset.
+            // But we need the ID. The 'assetPath' ends with the ID.
+            const sourceId = assetPath.split('/').pop();
+
+            for (const agendaId of reciprocalLinks.aisToAdd) {
+                const agendaPath = await findAgendaPath(agendaId);
+                if (agendaPath) {
+                     const zpPath = `${agendaPath}/details/Způsob zpracování/value`;
+                     const snapshot = await db.ref(zpPath).once('value');
+                     let methods = snapshot.val();
+                     if (Array.isArray(methods)) {
+                         // Find the AIS method and update it
+                         // We map over methods to update the specific one, then write back the whole array
+                         // because Firebase updates work best with known paths or complete objects
+                         const updatedMethods = methods.map(method => {
+                             if (method.label && method.label.includes('agendový informační systém')) {
+                                 let currentLinks = method.linksTo || [];
+                                 if (!currentLinks.includes(sourceId)) {
+                                     currentLinks.push(sourceId);
+                                 }
+                                 return { ...method, linksTo: currentLinks };
+                             }
+                             return method;
+                         });
+                         updates[zpPath] = updatedMethods;
+                     }
+                }
             }
         }
 
