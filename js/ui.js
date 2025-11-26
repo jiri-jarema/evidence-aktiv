@@ -1019,6 +1019,24 @@ function renderSupportAssetEditForm(assetId) {
 }
 
 function renderEditFormFields(formFragment, assetId, details, detailOrder, context = {}) {
+    const linkFields = [
+        'Agendy',
+        'Aplikační server',
+        'Databáze',
+        'Databaze',
+        'Sítě',
+        'Server',
+        'Cil_zalohovani',
+        'Provozovane_databaze',
+        'Provozovane_informacni_systemy',
+        'Informacni_systemy_vyuzivajici_DB',
+        'Informacni_systemy',
+        'Regulované služby',
+        'Zalohovane_databaze',
+        'Regulovaná služba',
+        'Agendový informační systém'
+    ];
+
     detailOrder.forEach(key => {
         const detail = details[key];
 
@@ -1165,7 +1183,11 @@ function renderEditFormFields(formFragment, assetId, details, detailOrder, conte
                 select.appendChild(optionEl);
             });
             inputContainer.appendChild(select);
-        } else if (detail.linksTo !== undefined) {
+        } else if (linkFields.includes(key) || detail.linksTo !== undefined) {
+            // Force structure for link fields even if data is missing or in legacy format
+            if (detail.linksTo === undefined) {
+                detail.linksTo = [];
+            }
             renderLinkSelector(inputContainer, assetId, key, detail, context);
         } else if (detail.value !== undefined && typeof detail.value === 'string') {
             const input = document.createElement('input');
@@ -1905,93 +1927,6 @@ export function renderServicesReport() {
         categorySection.appendChild(table);
         container.appendChild(categorySection);
     });
-}
-
-function renderNewSupportAssetForm(categoryId) {
-    dom.assetDetailContainer.innerHTML = '';
-    const allAssets = state.getAllAssets();
-    const category = allAssets[categoryId];
-
-    const title = document.createElement('h2');
-    title.textContent = `Nové aktivum: ${category.name}`;
-    title.className = 'text-3xl font-bold mb-6 pb-2 border-b border-gray-300';
-    dom.assetDetailContainer.appendChild(title);
-
-    const form = document.createElement('form');
-    form.id = `form-new-asset-${categoryId}`;
-    form.className = 'edit-form-grid';
-
-    const formElements = document.createDocumentFragment();
-
-    const nameLabel = document.createElement('label');
-    nameLabel.textContent = 'Název';
-    nameLabel.htmlFor = 'input-new-asset-name';
-    const nameInputContainer = document.createElement('div');
-    const nameInput = document.createElement('input');
-    nameInput.type = 'text';
-    nameInput.id = 'input-new-asset-name';
-    nameInput.className = 'form-input';
-    nameInput.required = true;
-    nameInputContainer.appendChild(nameInput);
-    formElements.appendChild(nameLabel);
-    formElements.appendChild(nameInputContainer);
-
-    let detailOrder = state.defaultSupportAssetOrder;
-    // Check if we are in Info Systems.
-    const path = utils.getPathForAsset(categoryId);
-    
-    if (categoryId === 'informacni-systemy' || path.includes('informacni-systemy')) {
-        detailOrder = state.infoSystemDetailOrder;
-    }
-
-    const detailsForForm = createDetailsForForm(categoryId, {}, detailOrder);
-    
-    renderEditFormFields(formElements, `new-asset-${categoryId}`, detailsForForm, detailOrder, { isNewAsset: true, categoryId: categoryId });
-    
-    form.appendChild(formElements);
-    dom.assetDetailContainer.appendChild(form);
-
-    const buttonContainer = document.createElement('div');
-    buttonContainer.className = 'mt-6 flex justify-end space-x-4 col-span-2';
-    
-    const saveButton = document.createElement('button');
-    saveButton.textContent = 'Uložit';
-    saveButton.className = 'px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700';
-    
-    const cancelButton = document.createElement('button');
-    cancelButton.textContent = 'Zrušit';
-    cancelButton.className = 'px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300';
-    cancelButton.onclick = (e) => {
-        e.preventDefault();
-        showCategoryContent(categoryId);
-    };
-
-    buttonContainer.appendChild(cancelButton);
-    buttonContainer.appendChild(saveButton);
-    form.appendChild(buttonContainer);
-
-    saveButton.onclick = async (e) => {
-        e.preventDefault();
-        if (nameInput.value.trim() === '') {
-            alert('Název nesmí být prázdný.');
-            return;
-        }
-        showLoader();
-        try {
-            const success = await saveNewSupportAsset(categoryId);
-            if (success) {
-                const reloaded = await reloadDataAndRebuildUI();
-                if (reloaded) {
-                    showCategoryContent(categoryId);
-                }
-            }
-        } catch (error) {
-            console.error("Error creating new asset:", error);
-            alert("Nepodařilo se vytvořit nové aktivum.");
-        } finally {
-            hideLoader();
-        }
-    };
 }
 
 function renderNewServiceCategoryForm(parentId) {
