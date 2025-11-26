@@ -85,24 +85,45 @@ function showConfirmationModal(message, onConfirm) {
  */
 export function buildNav(data, parentElement, level = 0, parentKey = null) {
   if (level === 0) {
-    const userRole = state.getUserRole();
-    if (userRole === 'administrator') {
-      const adminSection = document.createElement('div');
-      adminSection.className = 'mb-4';
+      // Sekce reportů a administrace
+      const toolsSection = document.createElement('div');
+      toolsSection.className = 'mb-4';
 
-      const btn = document.createElement('button');
-      btn.id = 'nav-btn-users'; // Přidání ID
-      btn.textContent = 'Uživatelé';
-      btn.className = 'w-full text-left px-3 py-2 rounded hover:bg-gray-100 font-medium';
-      btn.onclick = () => renderUsersAdminPage();
+      // Tlačítko pro přehled regulovaných služeb (dostupné pro všechny přihlášené)
+      const btnReport = document.createElement('button');
+      btnReport.id = 'nav-btn-services-report';
+      btnReport.innerHTML = `
+        <span class="flex items-center">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+            Přehled regulovaných služeb
+        </span>`;
+      btnReport.className = 'w-full text-left px-3 py-2 rounded hover:bg-gray-100 font-medium text-gray-700 mb-1';
+      btnReport.onclick = () => renderServicesReport();
+      toolsSection.appendChild(btnReport);
 
-      adminSection.appendChild(btn);
-      parentElement.appendChild(adminSection);
+      const userRole = state.getUserRole();
+      if (userRole === 'administrator') {
+        const btnUsers = document.createElement('button');
+        btnUsers.id = 'nav-btn-users';
+        btnUsers.innerHTML = `
+            <span class="flex items-center">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+                </svg>
+                Správa uživatelů
+            </span>`;
+        btnUsers.className = 'w-full text-left px-3 py-2 rounded hover:bg-gray-100 font-medium text-gray-700';
+        btnUsers.onclick = () => renderUsersAdminPage();
+        toolsSection.appendChild(btnUsers);
+      }
+
+      parentElement.appendChild(toolsSection);
 
       const hr = document.createElement('hr');
       hr.className = 'my-4';
       parentElement.appendChild(hr);
-    }
   }
 
     if (level >= 2) return;
@@ -160,7 +181,7 @@ export function showCategoryContent(categoryId) {
     dom.welcomeMessage.classList.add('hidden');
     dom.assetDetailContainer.classList.remove('hidden');
     dom.assetDetailContainer.innerHTML = '';
-    document.querySelectorAll('.sidebar-item.active, #nav-btn-users.active').forEach(el => el.classList.remove('active'));
+    document.querySelectorAll('.sidebar-item.active, #nav-btn-users.active, #nav-btn-services-report.active').forEach(el => el.classList.remove('active'));
     document.querySelector(`.sidebar-item[data-id="${categoryId}"]`)?.classList.add('active');
 
     const parentId = utils.findParentId(categoryId);
@@ -271,7 +292,7 @@ export function showAssetDetails(assetId, parentId, changedKeys = []) {
     dom.welcomeMessage.classList.add('hidden');
     dom.assetDetailContainer.classList.remove('hidden');
     dom.assetDetailContainer.innerHTML = '';
-    document.querySelectorAll('.sidebar-item.active, #nav-btn-users.active').forEach(el => el.classList.remove('active'));
+    document.querySelectorAll('.sidebar-item.active, #nav-btn-users.active, #nav-btn-services-report.active').forEach(el => el.classList.remove('active'));
 
     const navItem = document.querySelector(`.sidebar-item[data-id="${assetId}"]`);
     if (navItem) {
@@ -428,21 +449,9 @@ function renderGenericDetails(asset, assetId, changedKeys = []) {
             }
 
             if (isService && key === "Agendový informační systém") {
-                const linkedAgendas = asset.details?.Agendy?.linksTo || [];
-                const infoSystems = new Set();
-                linkedAgendas.forEach(agendaId => {
-                    const agenda = allAssets[agendaId];
-                    const zp = agenda?.details?.['Způsob zpracování']?.value;
-                    if (zp) {
-                        zp.forEach(method => {
-                            if (method.label.includes('agendový informační systém') && method.linksTo) {
-                                method.linksTo.forEach(isId => infoSystems.add(isId));
-                            }
-                        });
-                    }
-                });
-                if (infoSystems.size > 0) {
-                    dd.appendChild(utils.createLinksFragment(Array.from(infoSystems), showAssetDetails));
+                const connectedAIS = utils.getConnectedAISForService(assetId);
+                if (connectedAIS.length > 0) {
+                     dd.appendChild(utils.createLinksFragment(connectedAIS.map(i => i.id), showAssetDetails));
                 } else {
                     dd.textContent = '-';
                 }
@@ -1602,7 +1611,7 @@ dom.welcomeMessage.classList.add('hidden');
 dom.assetDetailContainer.classList.remove('hidden');
 
 // Odebere aktivní třídu ze všech položek menu a přidá ji tlačítku "Uživatelé"
-document.querySelectorAll('.sidebar-item.active, #nav-btn-users.active').forEach(el => el.classList.remove('active'));
+document.querySelectorAll('.sidebar-item.active, #nav-btn-services-report.active').forEach(el => el.classList.remove('active'));
 document.getElementById('nav-btn-users')?.classList.add('active');
 
 
@@ -1741,6 +1750,138 @@ document.getElementById('nav-btn-users')?.classList.add('active');
   }
 
   await refresh();
+}
+
+/**
+ * Renders the report of regulated services.
+ */
+export function renderServicesReport() {
+    dom.welcomeMessage.classList.add('hidden');
+    dom.assetDetailContainer.classList.remove('hidden');
+    dom.assetDetailContainer.innerHTML = '';
+
+    // Aktualizace aktivního tlačítka v menu
+    document.querySelectorAll('.sidebar-item.active, #nav-btn-users.active, #nav-btn-services-report.active').forEach(el => el.classList.remove('active'));
+    document.getElementById('nav-btn-services-report')?.classList.add('active');
+
+    const container = dom.assetDetailContainer;
+
+    // Hlavička a tlačítko tisk
+    const headerDiv = document.createElement('div');
+    headerDiv.className = 'flex justify-between items-center mb-6 pb-2 border-b border-gray-300';
+    
+    const title = document.createElement('h2');
+    title.textContent = 'Přehled regulovaných služeb';
+    title.className = 'text-3xl font-bold';
+    
+    const printBtn = document.createElement('button');
+    printBtn.textContent = 'Tisk přehledu';
+    printBtn.className = 'px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700 print:hidden';
+    printBtn.onclick = () => window.print();
+
+    headerDiv.appendChild(title);
+    headerDiv.appendChild(printBtn);
+    container.appendChild(headerDiv);
+
+    // Získání dat
+    const assetData = state.getAssetData();
+    const serviceCategories = assetData.primarni?.children?.sluzby?.children || {};
+    
+    // Seřazení kategorií
+    const categoryKeys = Object.keys(serviceCategories).sort((a, b) => 
+        serviceCategories[a].name.localeCompare(serviceCategories[b].name, 'cs')
+    );
+
+    if (categoryKeys.length === 0) {
+        const noDataDiv = document.createElement('div');
+        noDataDiv.textContent = 'Nebyly nalezeny žádné kategorie služeb.';
+        noDataDiv.className = 'text-gray-500 italic';
+        container.appendChild(noDataDiv);
+        return;
+    }
+
+    // Generování tabulek pro kategorie
+    categoryKeys.forEach(catKey => {
+        const category = serviceCategories[catKey];
+        const services = category.children || {};
+        
+        // Kontejner kategorie
+        const categorySection = document.createElement('div');
+        categorySection.className = 'mb-8 break-inside-avoid'; // break-inside-avoid pro tisk
+
+        const catTitle = document.createElement('h3');
+        catTitle.textContent = category.name;
+        catTitle.className = 'text-xl font-bold text-blue-700 mb-3 border-l-4 border-blue-500 pl-3';
+        categorySection.appendChild(catTitle);
+
+        // Tabulka
+        const table = document.createElement('table');
+        table.className = 'w-full text-left border-collapse border border-gray-300 shadow-sm';
+        
+        const thead = document.createElement('thead');
+        thead.className = 'bg-gray-100';
+        thead.innerHTML = `
+            <tr>
+                <th class="border border-gray-300 px-4 py-2 w-1/3">Název služby</th>
+                <th class="border border-gray-300 px-4 py-2 w-1/3">Legislativa</th>
+                <th class="border border-gray-300 px-4 py-2 w-1/3">Agendové informační systémy</th>
+            </tr>
+        `;
+        table.appendChild(thead);
+
+        const tbody = document.createElement('tbody');
+        const serviceKeys = Object.keys(services).sort((a, b) => 
+            services[a].name.localeCompare(services[b].name, 'cs')
+        );
+
+        if (serviceKeys.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="3" class="border border-gray-300 px-4 py-2 text-center text-gray-500 italic">V této kategorii nejsou žádné služby.</td></tr>';
+        } else {
+            serviceKeys.forEach(serviceId => {
+                const service = services[serviceId];
+                const tr = document.createElement('tr');
+                tr.className = 'hover:bg-gray-50';
+
+                // Název
+                const tdName = document.createElement('td');
+                tdName.className = 'border border-gray-300 px-4 py-2 align-top font-medium';
+                tdName.textContent = service.name;
+
+                // Legislativa
+                const tdLeg = document.createElement('td');
+                tdLeg.className = 'border border-gray-300 px-4 py-2 align-top text-sm';
+                tdLeg.textContent = service.details?.Legislativa?.value || '-';
+
+                // Agendové IS
+                const tdAis = document.createElement('td');
+                tdAis.className = 'border border-gray-300 px-4 py-2 align-top text-sm';
+                
+                // Získání propojených AIS pomocí utility
+                const connectedAIS = utils.getConnectedAISForService(serviceId);
+                if (connectedAIS.length > 0) {
+                    const ul = document.createElement('ul');
+                    ul.className = 'list-disc list-inside';
+                    connectedAIS.forEach(ais => {
+                        const li = document.createElement('li');
+                        li.textContent = ais.name;
+                        ul.appendChild(li);
+                    });
+                    tdAis.appendChild(ul);
+                } else {
+                    tdAis.textContent = '-';
+                }
+
+                tr.appendChild(tdName);
+                tr.appendChild(tdLeg);
+                tr.appendChild(tdAis);
+                tbody.appendChild(tr);
+            });
+        }
+
+        table.appendChild(tbody);
+        categorySection.appendChild(table);
+        container.appendChild(categorySection);
+    });
 }
 
 function renderNewServiceCategoryForm(parentId) {

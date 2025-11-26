@@ -110,3 +110,38 @@ export function createLinksFragment(linksTo, clickHandler) {
     });
     return fragment;
 }
+
+/**
+ * Retrieves connected Agenda Information Systems (AIS) for a given service.
+ * Traverses: Service -> Agenda -> Processing Method (AIS) -> Info System
+ * @param {string} serviceId - The ID of the regulated service.
+ * @returns {Array<{id: string, name: string}>} - Array of connected AIS objects.
+ */
+export function getConnectedAISForService(serviceId) {
+    const allAssets = getAllAssets();
+    const service = allAssets[serviceId];
+    if (!service) return [];
+
+    const linkedAgendaIds = service.details?.Agendy?.linksTo || [];
+    const aisSet = new Map(); // Use Map to avoid duplicates by ID
+
+    linkedAgendaIds.forEach(agendaId => {
+        const agenda = allAssets[agendaId];
+        if (!agenda) return;
+
+        const processingMethods = agenda.details?.['Způsob zpracování']?.value;
+        if (Array.isArray(processingMethods)) {
+            processingMethods.forEach(method => {
+                if (method.label && method.label.includes('agendový informační systém') && method.checked && method.linksTo) {
+                    method.linksTo.forEach(aisId => {
+                        if (allAssets[aisId]) {
+                            aisSet.set(aisId, { id: aisId, name: allAssets[aisId].name });
+                        }
+                    });
+                }
+            });
+        }
+    });
+
+    return Array.from(aisSet.values());
+}
