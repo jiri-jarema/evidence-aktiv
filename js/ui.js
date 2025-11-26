@@ -657,7 +657,8 @@ function createDetailsForForm(categoryId, existingDetails, detailOrder) {
             continue;
         }
 
-        const linkFields = ['Agendy', 'Aplikační server', 'Databáze', 'Sítě', 'Server', 'Cil_zalohovani', 'Provozovane_databaze', 'Provozovane_informacni_systemy', 'Informacni_systemy_vyuzivajici_DB', 'Informacni_systemy'];
+        // Added 'Databaze' and other potential missing keys to ensure they render as dropdowns
+        const linkFields = ['Agendy', 'Aplikační server', 'Databáze', 'Databaze', 'Sítě', 'Server', 'Cil_zalohovani', 'Provozovane_databaze', 'Provozovane_informacni_systemy', 'Informacni_systemy_vyuzivajici_DB', 'Informacni_systemy'];
         if (linkFields.includes(key.replace(/_/g, ' '))) {
             detailsForForm[key] = { linksTo: [] };
         }
@@ -1191,6 +1192,15 @@ function renderLinkSelector(container, assetId, key, detail, context = {}) {
     let assetPath;
     if (context.isNewAgenda) {
         assetPath = `agendy/children/${context.odborId}/children/${assetId}`;
+    } else if (context.isNewAsset) {
+        // Correctly handle new assets like Information Systems
+        if (context.categoryId === 'informacni-systemy') {
+             assetPath = 'primarni/children/informacni-systemy/children/new-asset';
+        } else {
+             // Fallback/Generic handling for other new assets
+             const parentPath = utils.getPathForAsset(context.categoryId);
+             assetPath = `${parentPath}/children/new-asset`;
+        }
     } else {
         assetPath = utils.getPathForAsset(assetId);
     }
@@ -1497,7 +1507,8 @@ async function saveNewSupportAsset(categoryId) {
     const newAssetId = `${categoryId}-${utils.sanitizeForId(newName.toLowerCase())}-${Date.now()}`;
     const newAssetPath = `${utils.getPathForAsset(categoryId)}/children/${newAssetId}`;
     const newAssetData = { name: newName, details: {} };
-    const reciprocalLinks = { toAdd: [], toRemove: [] };
+    // reciprocalLinks now has an optional 'aisToAdd' field for linking IS to Agenda
+    const reciprocalLinks = { toAdd: [], toRemove: [], aisToAdd: [] };
 
     // Determine correct order based on category
     let detailOrder = state.defaultSupportAssetOrder;
@@ -1517,18 +1528,24 @@ async function saveNewSupportAsset(categoryId) {
         if (newDetail.linksTo) {
             const newLinks = newDetail.linksTo;
             const assetCategoryPath = Object.keys(state.reciprocalMap).find(p => newAssetPath.includes(p));
-            // Note: Reciprocal map logic might need specific handling if path isn't fully formed yet, 
-            // but usually it matches based on prefix.
             
             if (assetCategoryPath) {
                  const linkConfig = state.reciprocalMap[assetCategoryPath]?.[key.replace(/ /g, '_')];
                  if (linkConfig) {
-                    newLinks.forEach(targetId => {
-                        reciprocalLinks.toAdd.push({
-                            targetPath: `${linkConfig.targetCategoryPath}/children/${targetId}/details/${linkConfig.reciprocalField}/linksTo`,
-                            sourceId: newAssetId
+                    // Check if we are linking from Information System to Agenda
+                    if (categoryId === 'informacni-systemy' && key === 'Agendy') {
+                         newLinks.forEach(targetId => {
+                             reciprocalLinks.aisToAdd.push(targetId);
+                         });
+                    } else {
+                        // Standard link handling
+                        newLinks.forEach(targetId => {
+                            reciprocalLinks.toAdd.push({
+                                targetPath: `${linkConfig.targetCategoryPath}/children/${targetId}/details/${linkConfig.reciprocalField}/linksTo`,
+                                sourceId: newAssetId
+                            });
                         });
-                    });
+                    }
                 }
             }
         }
