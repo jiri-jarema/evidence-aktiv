@@ -1296,9 +1296,10 @@ function renderLinkSelector(container, assetId, key, detail, context = {}) {
     };
 
     currentLinks.forEach(linkId => {
-        if (allAssets[linkId]) {
-            addSelectedItem(linkId, allAssets[linkId].name);
-        }
+        // Safely handle missing asset or name
+        const linkedAsset = allAssets[linkId];
+        const displayName = linkedAsset && linkedAsset.name ? linkedAsset.name : linkId; // Fallback to ID if name is missing
+        addSelectedItem(linkId, displayName);
     });
 
     const addWrapper = document.createElement('div');
