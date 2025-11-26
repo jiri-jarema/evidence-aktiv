@@ -6,6 +6,25 @@ import { reloadDataAndRebuildUI } from './auth.js';
 
 const loadingOverlay = document.getElementById('loading-overlay');
 
+// Centralizovaný seznam polí, která se mají vykreslovat jako výběrové seznamy (vazby)
+const LINK_FIELDS = [
+    'Agendy',
+    'Aplikační server',
+    'Databáze',
+    'Databaze',
+    'Sítě',
+    'Server',
+    'Cil_zalohovani',
+    'Provozovane_databaze',
+    'Provozovane_informacni_systemy',
+    'Informacni_systemy_vyuzivajici_DB',
+    'Informacni_systemy',
+    'Regulované služby',
+    'Zalohovane_databaze',
+    'Regulovaná služba',
+    'Agendový informační systém'
+];
+
 function showLoader() {
     if (loadingOverlay) {
         loadingOverlay.classList.remove('hidden');
@@ -21,11 +40,8 @@ function hideLoader() {
 
 /**
  * Displays a custom confirmation modal.
- * @param {string} message - The message to display in the modal.
- * @param {function} onConfirm - The callback function to execute on confirmation.
  */
 function showConfirmationModal(message, onConfirm) {
-    // Remove any existing modal
     const existingModal = document.getElementById('confirmation-modal');
     if (existingModal) {
         existingModal.remove();
@@ -78,18 +94,12 @@ function showConfirmationModal(message, onConfirm) {
 
 /**
  * Builds the navigation sidebar.
- * @param {object} data - The hierarchical data for the navigation.
- * @param {HTMLElement} parentElement - The element to append the navigation to.
- * @param {number} [level=0] - The current recursion level.
- * @param {string|null} [parentKey=null] - The key of the parent item.
  */
 export function buildNav(data, parentElement, level = 0, parentKey = null) {
   if (level === 0) {
-      // Sekce reportů a administrace
       const toolsSection = document.createElement('div');
       toolsSection.className = 'mb-4';
 
-      // Tlačítko pro přehled regulovaných služeb (dostupné pro všechny přihlášené)
       const btnReport = document.createElement('button');
       btnReport.id = 'nav-btn-services-report';
       btnReport.innerHTML = `
@@ -132,7 +142,6 @@ export function buildNav(data, parentElement, level = 0, parentKey = null) {
     
     let keys = Object.keys(data);
     
-    // Sort service categories alphabetically
     if (parentKey === 'sluzby') {
         keys.sort((a, b) => data[a].name.localeCompare(data[b].name, 'cs'));
     }
@@ -145,12 +154,11 @@ export function buildNav(data, parentElement, level = 0, parentKey = null) {
         itemDiv.dataset.id = key;
         itemDiv.className = level === 0 ? 'font-bold text-lg mt-4 cursor-default' : 'p-2 rounded-md sidebar-item';
 
-        if (level > 0 && (item.children || !item.details)) { // Treat as category if it has children OR no details
+        if (level > 0 && (item.children || !item.details)) { 
             itemDiv.onclick = () => showCategoryContent(key);
         } else if (level > 0) {
             itemDiv.onclick = () => showAssetDetails(key, utils.findParentId(key));
         }
-
 
         li.appendChild(itemDiv);
         if (item.children) buildNav(item.children, li, level + 1, key);
@@ -159,10 +167,6 @@ export function buildNav(data, parentElement, level = 0, parentKey = null) {
     parentElement.appendChild(ul);
 }
 
-/**
- * Displays the content for a selected category.
- * @param {string} categoryId - The ID of the category to display.
- */
 export function showCategoryContent(categoryId) {
     const allAssets = state.getAllAssets();
     const asset = allAssets[categoryId];
@@ -172,7 +176,6 @@ export function showCategoryContent(categoryId) {
         return;
     }
     
-    // If asset has details, it's a leaf node, show details instead.
     if (asset.details) {
         showAssetDetails(categoryId, utils.findParentId(categoryId));
         return;
@@ -186,7 +189,6 @@ export function showCategoryContent(categoryId) {
 
     const parentId = utils.findParentId(categoryId);
 
-    // Add breadcrumbs for the category view
     if (parentId && allAssets[parentId]) {
         const parentAsset = allAssets[parentId];
         const breadcrumbs = document.createElement('div');
@@ -225,7 +227,6 @@ export function showCategoryContent(categoryId) {
     const userRole = state.getUserRole();
     const userOdbor = state.getUserOdbor();
     
-    // Logic for adding buttons
     if (categoryId === 'sluzby' && userRole === 'administrator') {
         const addButton = document.createElement('button');
         addButton.textContent = 'Přidat novou kategorii služeb';
@@ -254,7 +255,6 @@ export function showCategoryContent(categoryId) {
         }
     }
 
-
     dom.assetDetailContainer.appendChild(titleContainer);
 
     const listContainer = document.createElement('div');
@@ -278,12 +278,6 @@ export function showCategoryContent(categoryId) {
     dom.assetDetailContainer.appendChild(listContainer);
 }
 
-/**
- * Displays the details of a specific asset.
- * @param {string} assetId - The ID of the asset.
- * @param {string} parentId - The ID of the asset's parent.
- * @param {string[]} [changedKeys=[]] - Keys that have been changed to highlight them.
- */
 export function showAssetDetails(assetId, parentId, changedKeys = []) {
     const allAssets = state.getAllAssets();
     const asset = allAssets[assetId];
@@ -392,10 +386,8 @@ export function showAssetDetails(assetId, parentId, changedKeys = []) {
                     if (success) {
                         const reloaded = await reloadDataAndRebuildUI();
                         if (reloaded) {
-                            showCategoryContent(parentId); // Go back to parent category
+                            showCategoryContent(parentId); 
                         }
-                    } else {
-                        // The api.js function already shows an alert on failure
                     }
                 });
             };
@@ -416,8 +408,8 @@ function renderGenericDetails(asset, assetId, changedKeys = []) {
     const detailsGrid = document.createElement('dl');
     detailsGrid.className = 'details-grid';
     const sharedOptions = state.getSharedOptions();
-    const allAssets = state.getAllAssets();
-
+    
+    // Determine keys to render
     const assetPath = utils.getPathForAsset(assetId);
     const isAgenda = assetPath.startsWith('agendy');
     const isService = asset.type === 'jednotliva-sluzba';
@@ -458,6 +450,7 @@ function renderGenericDetails(asset, assetId, changedKeys = []) {
             } else if (isInfoSystem && key === "Regulovaná služba") {
                 const linkedAgendas = asset.details?.Agendy?.linksTo || [];
                 const services = new Set();
+                const allAssets = state.getAllAssets();
                 linkedAgendas.forEach(agendaId => {
                     const agenda = allAssets[agendaId];
                     const serviceLinks = agenda?.details?.['Regulované služby']?.linksTo;
@@ -583,13 +576,6 @@ function renderProcessingMethods(methods, container) {
 
 // --- Rendering Edit Forms ---
 
-/**
- * Creates a complete set of details for a form, based on a template and existing data.
- * @param {string} categoryId - The ID of the parent category.
- * @param {object} existingDetails - The existing details of the asset being edited (can be empty).
- * @param {string[]} detailOrder - The ordered list of keys for the details.
- * @returns {object} - A complete details object for the form.
- */
 function createDetailsForForm(categoryId, existingDetails, detailOrder) {
     const allAssets = state.getAllAssets();
     const category = allAssets[categoryId];
@@ -599,7 +585,7 @@ function createDetailsForForm(categoryId, existingDetails, detailOrder) {
         ? Object.values(category.children)[0] 
         : null;
     
-    // Fallback default structure for a new agenda, in case the category is empty
+    // Fallback default structure for a new agenda
     const defaultAgendaStructure = {
         'Lhůty pro výmaz': { type: 'dictionary', value: { 'skartační lhůta': '', 'spisový znak': '', 'ukončení zpracování': '' } },
         'Způsob zpracování': {
@@ -615,25 +601,6 @@ function createDetailsForForm(categoryId, existingDetails, detailOrder) {
         },
         'Regulované služby': { linksTo: [] }
     };
-
-    // Must match list in renderEditFormFields
-    const linkFields = [
-        'Agendy',
-        'Aplikační server',
-        'Databáze',
-        'Databaze',
-        'Sítě',
-        'Server',
-        'Cil_zalohovani',
-        'Provozovane_databaze',
-        'Provozovane_informacni_systemy',
-        'Informacni_systemy_vyuzivajici_DB',
-        'Informacni_systemy',
-        'Regulované služby',
-        'Zalohovane_databaze',
-        'Regulovaná služba',
-        'Agendový informační systém'
-    ];
 
     for (const key of detailOrder) {
         if (existingDetails && existingDetails[key] !== undefined) {
@@ -676,12 +643,12 @@ function createDetailsForForm(categoryId, existingDetails, detailOrder) {
             continue;
         }
 
-        if (linkFields.includes(key.replace(/_/g, ' '))) {
+        if (LINK_FIELDS.includes(key.replace(/_/g, ' '))) {
             detailsForForm[key] = { linksTo: [] };
             continue;
         }
 
-        // Fallback for any other missing fields to ensure they render as text input
+        // Fallback for any other missing fields
         if (!detailsForForm[key]) {
             detailsForForm[key] = { value: '' };
         }
@@ -1041,25 +1008,98 @@ function renderSupportAssetEditForm(assetId) {
     form.appendChild(buttonContainer);
 }
 
-function renderEditFormFields(formFragment, assetId, details, detailOrder, context = {}) {
-    const linkFields = [
-        'Agendy',
-        'Aplikační server',
-        'Databáze',
-        'Databaze',
-        'Sítě',
-        'Server',
-        'Cil_zalohovani',
-        'Provozovane_databaze',
-        'Provozovane_informacni_systemy',
-        'Informacni_systemy_vyuzivajici_DB',
-        'Informacni_systemy',
-        'Regulované služby',
-        'Zalohovane_databaze',
-        'Regulovaná služba',
-        'Agendový informační systém'
-    ];
+function renderNewSupportAssetForm(categoryId) {
+    try {
+        dom.assetDetailContainer.innerHTML = '';
+        const allAssets = state.getAllAssets();
+        const category = allAssets[categoryId];
 
+        const title = document.createElement('h2');
+        title.textContent = `Nové aktivum: ${category.name}`;
+        title.className = 'text-3xl font-bold mb-6 pb-2 border-b border-gray-300';
+        dom.assetDetailContainer.appendChild(title);
+
+        const form = document.createElement('form');
+        form.id = `form-new-asset-${categoryId}`;
+        form.className = 'edit-form-grid';
+
+        const formElements = document.createDocumentFragment();
+
+        const nameLabel = document.createElement('label');
+        nameLabel.textContent = 'Název';
+        nameLabel.htmlFor = 'input-new-asset-name';
+        const nameInputContainer = document.createElement('div');
+        const nameInput = document.createElement('input');
+        nameInput.type = 'text';
+        nameInput.id = 'input-new-asset-name';
+        nameInput.className = 'form-input';
+        nameInput.required = true;
+        nameInputContainer.appendChild(nameInput);
+        formElements.appendChild(nameLabel);
+        formElements.appendChild(nameInputContainer);
+
+        let detailOrder = state.defaultSupportAssetOrder || [];
+        const path = utils.getPathForAsset(categoryId) || "";
+        
+        if (categoryId === 'informacni-systemy' || path.includes('informacni-systemy')) {
+            detailOrder = state.infoSystemDetailOrder || detailOrder;
+        }
+
+        const detailsForForm = createDetailsForForm(categoryId, {}, detailOrder);
+        
+        renderEditFormFields(formElements, `new-asset-${categoryId}`, detailsForForm, detailOrder, { isNewAsset: true, categoryId: categoryId });
+        
+        form.appendChild(formElements);
+        dom.assetDetailContainer.appendChild(form);
+
+        const buttonContainer = document.createElement('div');
+        buttonContainer.className = 'mt-6 flex justify-end space-x-4 col-span-2';
+        
+        const saveButton = document.createElement('button');
+        saveButton.textContent = 'Uložit';
+        saveButton.className = 'px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700';
+        
+        const cancelButton = document.createElement('button');
+        cancelButton.textContent = 'Zrušit';
+        cancelButton.className = 'px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300';
+        cancelButton.onclick = (e) => {
+            e.preventDefault();
+            showCategoryContent(categoryId);
+        };
+
+        buttonContainer.appendChild(cancelButton);
+        buttonContainer.appendChild(saveButton);
+        form.appendChild(buttonContainer);
+
+        saveButton.onclick = async (e) => {
+            e.preventDefault();
+            if (nameInput.value.trim() === '') {
+                alert('Název nesmí být prázdný.');
+                return;
+            }
+            showLoader();
+            try {
+                const success = await saveNewSupportAsset(categoryId);
+                if (success) {
+                    const reloaded = await reloadDataAndRebuildUI();
+                    if (reloaded) {
+                        showCategoryContent(categoryId);
+                    }
+                }
+            } catch (error) {
+                console.error("Error creating new asset:", error);
+                alert("Nepodařilo se vytvořit nové aktivum.");
+            } finally {
+                hideLoader();
+            }
+        };
+    } catch (err) {
+        console.error("Error rendering new support asset form:", err);
+        alert("Chyba při vykreslování formuláře.");
+    }
+}
+
+function renderEditFormFields(formFragment, assetId, details, detailOrder, context = {}) {
     detailOrder.forEach(key => {
         const detail = details[key];
 
@@ -1206,8 +1246,7 @@ function renderEditFormFields(formFragment, assetId, details, detailOrder, conte
                 select.appendChild(optionEl);
             });
             inputContainer.appendChild(select);
-        } else if (linkFields.includes(key) || detail.linksTo !== undefined) {
-            // Force structure for link fields even if data is missing or in legacy format
+        } else if (LINK_FIELDS.includes(key) || detail.linksTo !== undefined) {
             if (detail.linksTo === undefined) {
                 detail.linksTo = [];
             }
@@ -1238,11 +1277,9 @@ function renderLinkSelector(container, assetId, key, detail, context = {}) {
     if (context.isNewAgenda) {
         assetPath = `agendy/children/${context.odborId}/children/${assetId}`;
     } else if (context.isNewAsset) {
-        // Correctly handle new assets like Information Systems
         if (context.categoryId === 'informacni-systemy') {
              assetPath = 'primarni/children/informacni-systemy/children/new-asset';
         } else {
-             // Fallback/Generic handling for other new assets
              const parentPath = utils.getPathForAsset(context.categoryId);
              assetPath = `${parentPath}/children/new-asset`;
         }
@@ -1259,12 +1296,9 @@ function renderLinkSelector(container, assetId, key, detail, context = {}) {
     const updateDropdown = (selectEl, currentSelection) => {
         let assetCategoryPath;
         
-        // Determine the configuration path based on the asset path
-        // Special handling: If we are editing an Agenda (new or existing), the source config is in 'agendy'
         if (assetPath.startsWith('agendy')) {
              assetCategoryPath = 'agendy';
         } else {
-             // Find the matching key in reciprocalMap (e.g., 'primarni/children/informacni-systemy')
              assetCategoryPath = Object.keys(state.reciprocalMap).find(p => assetPath.startsWith(p));
         }
 
@@ -1319,9 +1353,8 @@ function renderLinkSelector(container, assetId, key, detail, context = {}) {
     };
 
     currentLinks.forEach(linkId => {
-        // Safely handle missing asset or name
         const linkedAsset = allAssets[linkId];
-        const displayName = linkedAsset && linkedAsset.name ? linkedAsset.name : linkId; // Fallback to ID if name is missing
+        const displayName = linkedAsset && linkedAsset.name ? linkedAsset.name : linkId; 
         addSelectedItem(linkId, displayName);
     });
 
@@ -1607,10 +1640,6 @@ async function saveNewSupportAsset(categoryId) {
 
 /**
  * Helper to get data from a form field based on its type.
- * @param {string} formIdPrefix - The prefix for the form element IDs.
- * @param {string} key - The detail key.
- * @param {object} detailTemplate - The template object for the detail.
- * @returns {object} - The updated detail object.
  */
 function getDetailDataFromForm(formIdPrefix, key, detailTemplate) {
     const form = document.querySelector(`form[id^="form-${formIdPrefix}"]`);
