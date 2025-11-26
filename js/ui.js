@@ -616,6 +616,25 @@ function createDetailsForForm(categoryId, existingDetails, detailOrder) {
         'Regulované služby': { linksTo: [] }
     };
 
+    // Must match list in renderEditFormFields
+    const linkFields = [
+        'Agendy',
+        'Aplikační server',
+        'Databáze',
+        'Databaze',
+        'Sítě',
+        'Server',
+        'Cil_zalohovani',
+        'Provozovane_databaze',
+        'Provozovane_informacni_systemy',
+        'Informacni_systemy_vyuzivajici_DB',
+        'Informacni_systemy',
+        'Regulované služby',
+        'Zalohovane_databaze',
+        'Regulovaná služba',
+        'Agendový informační systém'
+    ];
+
     for (const key of detailOrder) {
         if (existingDetails && existingDetails[key] !== undefined) {
             detailsForForm[key] = JSON.parse(JSON.stringify(existingDetails[key]));
@@ -657,10 +676,14 @@ function createDetailsForForm(categoryId, existingDetails, detailOrder) {
             continue;
         }
 
-        // Added 'Databaze' and other potential missing keys to ensure they render as dropdowns
-        const linkFields = ['Agendy', 'Aplikační server', 'Databáze', 'Databaze', 'Sítě', 'Server', 'Cil_zalohovani', 'Provozovane_databaze', 'Provozovane_informacni_systemy', 'Informacni_systemy_vyuzivajici_DB', 'Informacni_systemy'];
         if (linkFields.includes(key.replace(/_/g, ' '))) {
             detailsForForm[key] = { linksTo: [] };
+            continue;
+        }
+
+        // Fallback for any other missing fields to ensure they render as text input
+        if (!detailsForForm[key]) {
+            detailsForForm[key] = { value: '' };
         }
     }
 
