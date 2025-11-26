@@ -1495,38 +1495,42 @@ async function saveNewSupportAsset(categoryId) {
     }
 
     const newAssetId = `${categoryId}-${utils.sanitizeForId(newName.toLowerCase())}-${Date.now()}`;
-    const allAssets = state.getAllAssets();
-    const categoryAsset = allAssets[categoryId];
-    const sampleAssetKey = Object.keys(categoryAsset.children)[0];
-    const sampleAsset = categoryAsset.children[sampleAssetKey];
-
+    const newAssetPath = `${utils.getPathForAsset(categoryId)}/children/${newAssetId}`;
     const newAssetData = { name: newName, details: {} };
     const reciprocalLinks = { toAdd: [], toRemove: [] };
-    const newAssetPath = `${utils.getPathForAsset(categoryId)}/children/${newAssetId}`;
 
-    for (const key in sampleAsset.details) {
-        const detail = sampleAsset.details[key];
-        const newDetail = { ...detail };
+    // Determine correct order based on category
+    let detailOrder = state.defaultSupportAssetOrder;
+    const path = utils.getPathForAsset(categoryId);
+    if (categoryId === 'informacni-systemy' || path.includes('informacni-systemy')) {
+        detailOrder = state.infoSystemDetailOrder;
+    }
 
-        if (detail.linksTo) {
-            const selectedItemsContainer = form.querySelector(`#selected-items-new-asset-${categoryId}-${utils.sanitizeForId(key)}`);
-            const newLinks = Array.from(selectedItemsContainer.children).map(badge => badge.dataset.id);
-            newDetail.linksTo = newLinks;
+    // Create a template structure for form reading
+    const detailsForForm = createDetailsForForm(categoryId, {}, detailOrder);
 
+    for (const key of detailOrder) {
+        // Use the template to determine structure type
+        const detailTemplate = detailsForForm[key];
+        const newDetail = getDetailDataFromForm(`new-asset-${categoryId}`, key, detailTemplate);
+
+        if (newDetail.linksTo) {
+            const newLinks = newDetail.linksTo;
             const assetCategoryPath = Object.keys(state.reciprocalMap).find(p => newAssetPath.includes(p));
-            const linkConfig = state.reciprocalMap[assetCategoryPath]?.[key.replace(/ /g, '_')];
-
-            if (linkConfig) {
-                newLinks.forEach(targetId => {
-                    reciprocalLinks.toAdd.push({
-                        targetPath: `${linkConfig.targetCategoryPath}/children/${targetId}/details/${linkConfig.reciprocalField}/linksTo`,
-                        sourceId: newAssetId
+            // Note: Reciprocal map logic might need specific handling if path isn't fully formed yet, 
+            // but usually it matches based on prefix.
+            
+            if (assetCategoryPath) {
+                 const linkConfig = state.reciprocalMap[assetCategoryPath]?.[key.replace(/ /g, '_')];
+                 if (linkConfig) {
+                    newLinks.forEach(targetId => {
+                        reciprocalLinks.toAdd.push({
+                            targetPath: `${linkConfig.targetCategoryPath}/children/${targetId}/details/${linkConfig.reciprocalField}/linksTo`,
+                            sourceId: newAssetId
+                        });
                     });
-                });
+                }
             }
-        } else {
-            const input = form.querySelector(`#input-new-asset-${categoryId}-${utils.sanitizeForId(key)}`);
-            newDetail.value = input ? input.value : '';
         }
         newAssetData.details[key] = newDetail;
     }
@@ -1882,6 +1886,93 @@ export function renderServicesReport() {
         categorySection.appendChild(table);
         container.appendChild(categorySection);
     });
+}
+
+function renderNewSupportAssetForm(categoryId) {
+    dom.assetDetailContainer.innerHTML = '';
+    const allAssets = state.getAllAssets();
+    const category = allAssets[categoryId];
+
+    const title = document.createElement('h2');
+    title.textContent = `Nové aktivum: ${category.name}`;
+    title.className = 'text-3xl font-bold mb-6 pb-2 border-b border-gray-300';
+    dom.assetDetailContainer.appendChild(title);
+
+    const form = document.createElement('form');
+    form.id = `form-new-asset-${categoryId}`;
+    form.className = 'edit-form-grid';
+
+    const formElements = document.createDocumentFragment();
+
+    const nameLabel = document.createElement('label');
+    nameLabel.textContent = 'Název';
+    nameLabel.htmlFor = 'input-new-asset-name';
+    const nameInputContainer = document.createElement('div');
+    const nameInput = document.createElement('input');
+    nameInput.type = 'text';
+    nameInput.id = 'input-new-asset-name';
+    nameInput.className = 'form-input';
+    nameInput.required = true;
+    nameInputContainer.appendChild(nameInput);
+    formElements.appendChild(nameLabel);
+    formElements.appendChild(nameInputContainer);
+
+    let detailOrder = state.defaultSupportAssetOrder;
+    // Check if we are in Info Systems.
+    const path = utils.getPathForAsset(categoryId);
+    
+    if (categoryId === 'informacni-systemy' || path.includes('informacni-systemy')) {
+        detailOrder = state.infoSystemDetailOrder;
+    }
+
+    const detailsForForm = createDetailsForForm(categoryId, {}, detailOrder);
+    
+    renderEditFormFields(formElements, `new-asset-${categoryId}`, detailsForForm, detailOrder, { isNewAsset: true, categoryId: categoryId });
+    
+    form.appendChild(formElements);
+    dom.assetDetailContainer.appendChild(form);
+
+    const buttonContainer = document.createElement('div');
+    buttonContainer.className = 'mt-6 flex justify-end space-x-4 col-span-2';
+    
+    const saveButton = document.createElement('button');
+    saveButton.textContent = 'Uložit';
+    saveButton.className = 'px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700';
+    
+    const cancelButton = document.createElement('button');
+    cancelButton.textContent = 'Zrušit';
+    cancelButton.className = 'px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300';
+    cancelButton.onclick = (e) => {
+        e.preventDefault();
+        showCategoryContent(categoryId);
+    };
+
+    buttonContainer.appendChild(cancelButton);
+    buttonContainer.appendChild(saveButton);
+    form.appendChild(buttonContainer);
+
+    saveButton.onclick = async (e) => {
+        e.preventDefault();
+        if (nameInput.value.trim() === '') {
+            alert('Název nesmí být prázdný.');
+            return;
+        }
+        showLoader();
+        try {
+            const success = await saveNewSupportAsset(categoryId);
+            if (success) {
+                const reloaded = await reloadDataAndRebuildUI();
+                if (reloaded) {
+                    showCategoryContent(categoryId);
+                }
+            }
+        } catch (error) {
+            console.error("Error creating new asset:", error);
+            alert("Nepodařilo se vytvořit nové aktivum.");
+        } finally {
+            hideLoader();
+        }
+    };
 }
 
 function renderNewServiceCategoryForm(parentId) {
