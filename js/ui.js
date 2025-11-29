@@ -1378,6 +1378,8 @@ function renderLinkSelector(container, assetId, key, detail, context = {}) {
              const parentPath = utils.getPathForAsset(context.categoryId);
              assetPath = `${parentPath}/children/new-asset`;
         }
+    } else if (context.isNewService) {
+        assetPath = 'primarni/children/sluzby/children/new-service';
     } else {
         assetPath = utils.getPathForAsset(assetId);
     }
