@@ -10,7 +10,8 @@ let parentMap = {};
 
 // Constants
 export const detailOrder = [
-    "Garant", "Účel zpracování", "Zákonnost zpracování", "Legislativa", "Regulované služby", "Způsob zpracování",
+    "Garant", "Účel zpracování", "Zákonnost zpracování", "Legislativa", "Regulované služby", "Klasifikace informací",
+    "Kategorie subjektu údajů", "Způsob zpracování",
     "Zdroje osobních údajů", "Kategorie osobních údajů", "Zvláštní kategorie osobních údajů",
     "Lhůty pro výmaz", "Zpracovatel", "Jmenný seznam oprávněných osob",
     "Kategorie příjemců osobních údajů", "Propojení na jiné správce nebo zpracovatele",

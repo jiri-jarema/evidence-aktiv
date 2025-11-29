@@ -608,6 +608,27 @@ function createDetailsForForm(categoryId, existingDetails, detailOrder) {
             continue;
         }
 
+        // --- NOVÝ KÓD PRO KLASIFIKACI A SUBJEKTY ---
+        if (key === "Klasifikace informací") {
+            detailsForForm[key] = { 
+                type: 'classification', 
+                value: 'INTERNÍ' 
+            };
+            continue;
+        }
+
+        if (key === "Kategorie subjektu údajů") {
+            const options = state.getSharedOptions().subjectCategories || ["občané/klienti", "zaměstnanci správce", "dodavatelé", "zastupitelé", "jiné"];
+            detailsForForm[key] = {
+                type: 'checkbox-list',
+                optionsKey: 'subjectCategories', 
+                checked: new Array(options.length).fill(false),
+                details: {}
+            };
+            continue;
+        }
+        // --- KONEC NOVÉHO KÓDU ---
+
         if (sampleAsset && sampleAsset.details && sampleAsset.details[key] !== undefined) {
             const template = JSON.parse(JSON.stringify(sampleAsset.details[key]));
             
@@ -1115,6 +1136,28 @@ function renderEditFormFields(formFragment, assetId, details, detailOrder, conte
             text.textContent = 'Tato položka nemá definovanou strukturu.';
             text.className = 'text-gray-500 pt-2';
             inputContainer.appendChild(text);
+        
+        // --- NOVÝ KÓD PRO KLASIFIKACI ---
+        } else if (detail.type === 'classification') {
+            const select = document.createElement('select');
+            select.id = `input-${assetId}-${sanitizedKey}`;
+            select.className = 'form-input';
+            
+            // Možnosti pro klasifikaci
+            const options = ["VEŘEJNÉ", "INTERNÍ", "CITLIVÉ", "CHRÁNĚNÉ"];
+            
+            options.forEach(option => {
+                const optionEl = document.createElement('option');
+                optionEl.value = option;
+                optionEl.textContent = option;
+                if (detail.value === option) {
+                    optionEl.selected = true;
+                }
+                select.appendChild(optionEl);
+            });
+            inputContainer.appendChild(select);
+        // --- KONEC NOVÉHO KÓDU ---
+
         } else if (key === "Lhůty pro výmaz" && detail.type === 'dictionary') {
             const subFormContainer = document.createElement('div');
             subFormContainer.className = 'space-y-2';
@@ -1692,6 +1735,13 @@ function getDetailDataFromForm(formIdPrefix, key, detailTemplate) {
     } else if (newDetail.type === 'lawfulness') {
         const select = form.querySelector(`#input-${formIdPrefix}-${sanitizedKey}`);
         newDetail.value = select ? select.value : '';
+    
+    // --- NOVÝ KÓD PRO KLASIFIKACI ---
+    } else if (newDetail.type === 'classification') {
+        const select = form.querySelector(`#input-${formIdPrefix}-${sanitizedKey}`);
+        newDetail.value = select ? select.value : '';
+    // --- KONEC NOVÉHO KÓDU ---
+
     } else if (newDetail.linksTo !== undefined) {
         const linkedContainer = form.querySelector(`#selected-items-${formIdPrefix}-${sanitizedKey}`);
         newDetail.linksTo = linkedContainer ? Array.from(linkedContainer.children).map(div => div.dataset.id) : [];
