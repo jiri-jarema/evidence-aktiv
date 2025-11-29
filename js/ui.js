@@ -37,6 +37,40 @@ function hideLoader() {
     }
 }
 
+/**
+ * Calculates the maximum classification level from linked agendas.
+ * Hierarchy: VEŘEJNÉ (0) < INTERNÍ (1) < CITLIVÉ (2) < CHRÁNĚNÉ (3)
+ * @param {object} asset - The asset object (Information System).
+ * @returns {string} - The highest classification level string.
+ */
+function calculateMaxClassification(asset) {
+    if (!asset) return "VEŘEJNÉ";
+    
+    const levels = { "VEŘEJNÉ": 0, "INTERNÍ": 1, "CITLIVÉ": 2, "CHRÁNĚNÉ": 3 };
+    const levelsArray = ["VEŘEJNÉ", "INTERNÍ", "CITLIVÉ", "CHRÁNĚNÉ"];
+    
+    let maxLevel = 0;
+    
+    // Získání odkazů na agendy - u IS je to v details.Agendy.linksTo
+    const linkedAgendas = asset.details?.Agendy?.linksTo || [];
+    const allAssets = state.getAllAssets();
+
+    linkedAgendas.forEach(agendaId => {
+        const agenda = allAssets[agendaId];
+        // Zkontrolujeme, zda agenda existuje a zda má nastavenou klasifikaci
+        if (agenda && agenda.details && agenda.details["Klasifikace informací"]) {
+            const val = agenda.details["Klasifikace informací"].value;
+            if (levels[val] !== undefined) {
+                if (levels[val] > maxLevel) {
+                    maxLevel = levels[val];
+                }
+            }
+        }
+    });
+
+    return levelsArray[maxLevel];
+}
+
 
 /**
  * Displays a custom confirmation modal.
@@ -440,7 +474,11 @@ function renderGenericDetails(asset, assetId, changedKeys = []) {
                 dd.classList.add('changed-value');
             }
 
-            if (isService && key === "Agendový informační systém") {
+            // --- ZDE JE IMPLEMENTOVÁNA LOGIKA PRO DYNAMICKÝ VÝPOČET KLASIFIKACE ---
+            if (isInfoSystem && key === "Klasifikace informací") {
+                const calculatedValue = calculateMaxClassification(asset);
+                dd.innerHTML = `<span class="font-bold text-blue-700">${calculatedValue}</span> <span class="text-xs text-gray-500 block">(určeno automaticky dle nejvyšší klasifikace připojených agend)</span>`;
+            } else if (isService && key === "Agendový informační systém") {
                 const connectedAIS = utils.getConnectedAISForService(assetId);
                 if (connectedAIS.length > 0) {
                      dd.appendChild(utils.createLinksFragment(connectedAIS.map(i => i.id), showAssetDetails));
@@ -986,7 +1024,7 @@ function renderSupportAssetEditForm(assetId) {
 
     const detailsForForm = createDetailsForForm(parentId, asset.details, order);
 
-    renderEditFormFields(formElements, assetId, detailsForForm, order);
+    renderEditFormFields(formElements, assetId, detailsForForm, order, { isInfoSystem });
     form.appendChild(formElements);
     dom.assetDetailContainer.appendChild(form);
 
@@ -1061,14 +1099,15 @@ function renderNewSupportAssetForm(categoryId) {
 
         let detailOrder = state.defaultSupportAssetOrder || [];
         const path = utils.getPathForAsset(categoryId) || "";
+        const isInfoSystem = categoryId === 'informacni-systemy' || path.includes('informacni-systemy');
         
-        if (categoryId === 'informacni-systemy' || path.includes('informacni-systemy')) {
+        if (isInfoSystem) {
             detailOrder = state.infoSystemDetailOrder || detailOrder;
         }
 
         const detailsForForm = createDetailsForForm(categoryId, {}, detailOrder);
         
-        renderEditFormFields(formElements, `new-asset-${categoryId}`, detailsForForm, detailOrder, { isNewAsset: true, categoryId: categoryId });
+        renderEditFormFields(formElements, `new-asset-${categoryId}`, detailsForForm, detailOrder, { isNewAsset: true, categoryId: categoryId, isInfoSystem });
         
         form.appendChild(formElements);
         dom.assetDetailContainer.appendChild(form);
@@ -1137,26 +1176,39 @@ function renderEditFormFields(formFragment, assetId, details, detailOrder, conte
             text.className = 'text-gray-500 pt-2';
             inputContainer.appendChild(text);
         
-        // --- NOVÝ KÓD PRO KLASIFIKACI ---
+        // --- LOGIKA PRO KLASIFIKACI ---
         } else if (detail.type === 'classification') {
-            const select = document.createElement('select');
-            select.id = `input-${assetId}-${sanitizedKey}`;
-            select.className = 'form-input';
-            
-            // Možnosti pro klasifikaci
-            const options = ["VEŘEJNÉ", "INTERNÍ", "CITLIVÉ", "CHRÁNĚNÉ"];
-            
-            options.forEach(option => {
-                const optionEl = document.createElement('option');
-                optionEl.value = option;
-                optionEl.textContent = option;
-                if (detail.value === option) {
-                    optionEl.selected = true;
+            if (context.isInfoSystem) {
+                const p = document.createElement('p');
+                p.className = 'py-2 text-gray-700 bg-gray-100 px-3 rounded text-sm';
+                
+                let calcValue = "VEŘEJNÉ"; // Výchozí pro nový asset
+                if (!context.isNewAsset) {
+                    const currentAsset = state.getAllAssets()[assetId];
+                    calcValue = calculateMaxClassification(currentAsset);
                 }
-                select.appendChild(optionEl);
-            });
-            inputContainer.appendChild(select);
-        // --- KONEC NOVÉHO KÓDU ---
+                
+                p.innerHTML = `Aktuální hodnota: <strong>${calcValue}</strong><br><span class="text-xs text-gray-500">Hodnota se vypočítává automaticky na základě připojených agend. Nelze ji měnit ručně.</span>`;
+                inputContainer.appendChild(p);
+            } else {
+                const select = document.createElement('select');
+                select.id = `input-${assetId}-${sanitizedKey}`;
+                select.className = 'form-input';
+                
+                // Možnosti pro klasifikaci
+                const options = ["VEŘEJNÉ", "INTERNÍ", "CITLIVÉ", "CHRÁNĚNÉ"];
+                
+                options.forEach(option => {
+                    const optionEl = document.createElement('option');
+                    optionEl.value = option;
+                    optionEl.textContent = option;
+                    if (detail.value === option) {
+                        optionEl.selected = true;
+                    }
+                    select.appendChild(optionEl);
+                });
+                inputContainer.appendChild(select);
+            }
 
         } else if (key === "Lhůty pro výmaz" && detail.type === 'dictionary') {
             const subFormContainer = document.createElement('div');
