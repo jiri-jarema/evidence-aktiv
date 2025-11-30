@@ -9,3 +9,10 @@ export const userInfo = document.getElementById('user-info');
 export const sidebar = document.getElementById('sidebar');
 export const assetDetailContainer = document.getElementById('asset-detail');
 export const welcomeMessage = document.getElementById('welcome-message');
+
+// Change Password Modal Elements
+export const changePasswordButton = document.getElementById('change-password-button');
+export const changePasswordModal = document.getElementById('change-password-modal');
+export const changePasswordForm = document.getElementById('change-password-form');
+export const changePasswordError = document.getElementById('change-password-error');
+export const cancelPasswordChange = document.getElementById('cancel-password-change');
