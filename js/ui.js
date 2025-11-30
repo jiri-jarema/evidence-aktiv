@@ -470,6 +470,11 @@ function renderGenericDetails(asset, assetId, changedKeys = []) {
     if (isDatabase || isNetwork) {
         keysToRender = keysToRender.filter(k => k !== 'Vlastnik');
     }
+    
+    // Změna: Odstranění Spravce_zastupce pro Databáze
+    if (isDatabase) {
+        keysToRender = keysToRender.filter(k => k !== 'Spravce_zastupce');
+    }
 
     if (keysToRender.length > 0) {
         keysToRender.forEach(key => {
@@ -1056,6 +1061,11 @@ function renderSupportAssetEditForm(assetId) {
     if (isDatabase || isNetwork) {
         order = order.filter(k => k !== 'Vlastnik');
     }
+    
+    // Změna: Filtrace pole 'Spravce_zastupce' pro DB
+    if (isDatabase) {
+        order = order.filter(k => k !== 'Spravce_zastupce');
+    }
 
     const detailsForForm = createDetailsForForm(parentId, asset.details, order);
 
@@ -1147,6 +1157,11 @@ function renderNewSupportAssetForm(categoryId) {
         // Změna: Filtrace pole 'Vlastnik' pro DB a Sítě
         if (isDatabase || isNetwork) {
             detailOrder = detailOrder.filter(k => k !== 'Vlastnik');
+        }
+        
+        // Změna: Filtrace pole 'Spravce_zastupce' pro DB
+        if (isDatabase) {
+            detailOrder = detailOrder.filter(k => k !== 'Spravce_zastupce');
         }
 
         const detailsForForm = createDetailsForForm(categoryId, {}, detailOrder);
