@@ -4,6 +4,7 @@ import { loadInitialData } from './api.js';
 import * as dom from './dom.js';
 import { flattenData, buildParentMap } from './utils.js';
 import { buildNav } from './ui.js';
+import firebase from 'firebase/app'; // Potřebné pro reauthenticate
 
 /**
  * Loads all data from the server, processes it, and rebuilds the entire UI.
@@ -107,4 +108,62 @@ export function initAuth() {
     dom.logoutButton.addEventListener('click', () => {
         auth.signOut();
     });
+
+    // --- Change Password Logic ---
+    
+    // Show modal
+    if (dom.changePasswordButton) {
+        dom.changePasswordButton.addEventListener('click', () => {
+            dom.changePasswordModal.classList.remove('hidden');
+            dom.changePasswordForm.reset();
+            dom.changePasswordError.textContent = '';
+        });
+    }
+
+    // Hide modal
+    if (dom.cancelPasswordChange) {
+        dom.cancelPasswordChange.addEventListener('click', () => {
+            dom.changePasswordModal.classList.add('hidden');
+        });
+    }
+
+    // Handle password change submit
+    if (dom.changePasswordForm) {
+        dom.changePasswordForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            dom.changePasswordError.textContent = '';
+
+            const currentPassword = document.getElementById('current-password').value;
+            const newPassword = document.getElementById('new-password').value;
+            const confirmPassword = document.getElementById('confirm-password').value;
+
+            if (newPassword !== confirmPassword) {
+                dom.changePasswordError.textContent = 'Nová hesla se neshodují.';
+                return;
+            }
+
+            const user = auth.currentUser;
+            if (!user) return;
+
+            // Re-authenticate user before changing password (security requirement)
+            const credential = firebase.auth.EmailAuthProvider.credential(user.email, currentPassword);
+
+            try {
+                await user.reauthenticateWithCredential(credential);
+                await user.updatePassword(newPassword);
+                alert('Heslo bylo úspěšně změněno.');
+                dom.changePasswordModal.classList.add('hidden');
+                dom.changePasswordForm.reset();
+            } catch (error) {
+                console.error("Chyba při změně hesla:", error);
+                if (error.code === 'auth/wrong-password') {
+                    dom.changePasswordError.textContent = 'Současné heslo není správné.';
+                } else if (error.code === 'auth/weak-password') {
+                    dom.changePasswordError.textContent = 'Nové heslo je příliš slabé (min. 6 znaků).';
+                } else {
+                    dom.changePasswordError.textContent = 'Nepodařilo se změnit heslo. Zkuste to prosím znovu.';
+                }
+            }
+        });
+    }
 }
