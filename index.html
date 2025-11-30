@@ -79,6 +79,7 @@
             <h1 class="text-2xl font-bold text-gray-700">Evidence aktiv Městského úřadu Vítkov</h1>
             <div>
                 <span id="user-info" class="text-sm text-gray-600 mr-4"></span>
+                <button id="change-password-button" class="px-4 py-2 text-sm text-blue-600 bg-blue-100 rounded-md hover:bg-blue-200 mr-2">Změnit heslo</button>
                 <button id="logout-button" class="px-4 py-2 text-sm text-white bg-red-600 rounded-md hover:bg-red-700">Odhlásit se</button>
             </div>
         </header>
@@ -99,6 +100,32 @@
                 </div>
                 <div id="asset-detail" class="hidden"></div>
             </main>
+        </div>
+    </div>
+
+    <!-- Change Password Modal -->
+    <div id="change-password-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
+        <div class="bg-white p-6 rounded-lg shadow-xl max-w-sm w-full">
+            <h3 class="text-lg font-bold mb-4 text-gray-700">Změna hesla</h3>
+            <form id="change-password-form" class="space-y-4">
+                <div>
+                    <label for="current-password" class="block text-sm font-medium text-gray-700">Současné heslo</label>
+                    <input type="password" id="current-password" required class="form-input mt-1 w-full">
+                </div>
+                <div>
+                    <label for="new-password" class="block text-sm font-medium text-gray-700">Nové heslo</label>
+                    <input type="password" id="new-password" required class="form-input mt-1 w-full" minlength="6">
+                </div>
+                <div>
+                    <label for="confirm-password" class="block text-sm font-medium text-gray-700">Potvrzení nového hesla</label>
+                    <input type="password" id="confirm-password" required class="form-input mt-1 w-full" minlength="6">
+                </div>
+                <p id="change-password-error" class="text-sm text-red-600"></p>
+                <div class="flex justify-end space-x-3 pt-2">
+                    <button type="button" id="cancel-password-change" class="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300">Zrušit</button>
+                    <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">Změnit heslo</button>
+                </div>
+            </form>
         </div>
     </div>
 
