@@ -1,3 +1,7 @@
+{
+type: uploaded file
+fileName: jiri-jarema/evidence-aktiv/evidence-aktiv-fdbcbbe7112c38f531d80bc9d8df8b6eb9b9eae5/js/ui.js
+fullContent:
 import * as dom from './dom.js';
 import * as state from './state.js';
 import * as utils from './utils.js';
@@ -501,6 +505,20 @@ function renderGenericDetails(asset, assetId, changedKeys = []) {
                 } else {
                     dd.textContent = '-';
                 }
+            } else if (isAgenda && key === "Zabezpečení zpracování - analogové") {
+                const linkedSecurity = utils.getLinkedISSecurityForAgenda(assetId);
+                if (linkedSecurity.length > 0) {
+                    const ul = document.createElement('ul');
+                    ul.className = "list-disc list-inside space-y-1";
+                    linkedSecurity.forEach(isSec => {
+                        const li = document.createElement('li');
+                        li.innerHTML = `<span class="font-medium text-blue-700">${isSec.name}</span>: ${isSec.options.join(', ')}`;
+                        ul.appendChild(li);
+                    });
+                    dd.appendChild(ul);
+                } else {
+                    dd.textContent = "Žádná data z připojených IS.";
+                }
             } else if (!detail) {
                 dd.textContent = '-';
             } else if (detail.type === 'lawfulness') {
@@ -878,8 +896,10 @@ function renderEditForm(assetId) {
     formElements.appendChild(nameInputContainer);
 
     const detailsForForm = createDetailsForForm(parentId, asset.details, state.detailOrder);
+    
+    const isAgenda = utils.getPathForAsset(assetId).startsWith('agendy');
 
-    renderEditFormFields(formElements, assetId, detailsForForm, state.detailOrder);
+    renderEditFormFields(formElements, assetId, detailsForForm, state.detailOrder, { isAgenda: isAgenda });
     form.appendChild(formElements);
     dom.assetDetailContainer.appendChild(form);
 
@@ -1161,6 +1181,12 @@ function renderNewSupportAssetForm(categoryId) {
 
 function renderEditFormFields(formFragment, assetId, details, detailOrder, context = {}) {
     detailOrder.forEach(key => {
+        
+        // Změna: Skrýt pole "Zabezpečení zpracování - analogové" ve formulářích pro agendy
+        if ((context.isNewAgenda || context.isAgenda) && key === "Zabezpečení zpracování - analogové") {
+            return;
+        }
+
         const detail = details[key];
 
         const label = document.createElement('label');
@@ -2241,4 +2267,5 @@ function renderNewServiceForm(categoryId) {
             hideLoader();
         }
     };
+}
 }

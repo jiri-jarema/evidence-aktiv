@@ -1,4 +1,8 @@
-import { getAllAssets, getParentMap } from './state.js';
+{
+type: uploaded file
+fileName: jiri-jarema/evidence-aktiv/evidence-aktiv-fdbcbbe7112c38f531d80bc9d8df8b6eb9b9eae5/js/utils.js
+fullContent:
+import { getAllAssets, getParentMap, getSharedOptions } from './state.js';
 
 /**
  * Sanitizes text to be used as part of an ID.
@@ -144,4 +148,63 @@ export function getConnectedAISForService(serviceId) {
     });
 
     return Array.from(aisSet.values());
+}
+
+/**
+ * Získá bezpečnostní nastavení z připojených informačních systémů pro danou agendu.
+ * @param {string} agendaId - ID agendy.
+ * @returns {Array<{name: string, options: string[]}>} - Pole objektů s názvem IS a seznamem aktivních voleb.
+ */
+export function getLinkedISSecurityForAgenda(agendaId) {
+    const allAssets = getAllAssets();
+    const agenda = allAssets[agendaId];
+    if (!agenda) return [];
+
+    const processingMethod = agenda.details?.["Způsob zpracování"]?.value;
+    if (!Array.isArray(processingMethod)) return [];
+
+    // Najdi metodu odpovídající AIS
+    const aisMethod = processingMethod.find(m => m.label && m.label.includes("agendový informační systém"));
+    if (!aisMethod || !aisMethod.linksTo || !Array.isArray(aisMethod.linksTo)) return [];
+
+    const results = [];
+    const sharedOptions = getSharedOptions();
+
+    aisMethod.linksTo.forEach(isId => {
+        const isAsset = allAssets[isId];
+        // Zkontroluj, zda IS existuje a má detail Zabezpečení
+        if (isAsset && isAsset.details && isAsset.details["Zabezpečení"]) {
+            const secDetail = isAsset.details["Zabezpečení"];
+            
+            // Urči klíč pro možnosti (fallback na securityElectronic)
+            const optionsKey = secDetail.optionsKey || 'securityElectronic';
+            const options = sharedOptions[optionsKey];
+            const checked = secDetail.checked || secDetail.value || [];
+            const details = secDetail.details || {};
+            
+            const activeOptions = [];
+            if (options && Array.isArray(checked)) {
+                checked.forEach((isChecked, index) => {
+                    if (isChecked && options[index]) {
+                        let label = options[index];
+                        // Pokud volba obsahuje "Jiné", přidej detail, pokud existuje
+                        if (label.toLowerCase().includes('jiné') && details[index]) {
+                             label += ` (${details[index]})`;
+                        }
+                        activeOptions.push(label);
+                    }
+                });
+            }
+            
+            if (activeOptions.length > 0) {
+                results.push({
+                    name: isAsset.name,
+                    options: activeOptions
+                });
+            }
+        }
+    });
+    
+    return results;
+}
 }
