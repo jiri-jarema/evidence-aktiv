@@ -449,6 +449,10 @@ function renderGenericDetails(asset, assetId, changedKeys = []) {
     const isService = asset.type === 'jednotliva-sluzba';
     const isInfoSystem = assetPath.startsWith('primarni/children/informacni-systemy');
 
+    // Změna: Detekce databáze a sítě
+    const isDatabase = assetPath.includes('podpurna/children/databaze');
+    const isNetwork = assetPath.includes('podpurna/children/site');
+
     let keysToRender = [];
     if (isAgenda) {
         keysToRender = [...state.detailOrder];
@@ -460,6 +464,11 @@ function renderGenericDetails(asset, assetId, changedKeys = []) {
         keysToRender.push("Regulovaná služba");
     } else {
         keysToRender = state.defaultSupportAssetOrder.filter(k => asset.details && asset.details[k] !== undefined);
+    }
+
+    // Změna: Odstranění Vlastník pro Databáze a Sítě
+    if (isDatabase || isNetwork) {
+        keysToRender = keysToRender.filter(k => k !== 'Vlastnik');
     }
 
     if (keysToRender.length > 0) {
@@ -1034,9 +1043,19 @@ function renderSupportAssetEditForm(assetId) {
     const isService = asset.type === 'jednotliva-sluzba';
     const isInfoSystem = utils.getPathForAsset(assetId).startsWith('primarni/children/informacni-systemy');
 
+    // Změna: Detekce databáze a sítě pro filtrování pole 'Vlastnik'
+    const assetPath = utils.getPathForAsset(assetId);
+    const isDatabase = assetPath.includes('podpurna/children/databaze');
+    const isNetwork = assetPath.includes('podpurna/children/site');
+
     let order = state.defaultSupportAssetOrder.filter(k => (asset.details && asset.details[k] !== undefined));
     if (isService) order = state.serviceDetailOrder;
     if (isInfoSystem) order = state.infoSystemDetailOrder;
+
+    // Změna: Filtrace pole 'Vlastnik' pro DB a Sítě
+    if (isDatabase || isNetwork) {
+        order = order.filter(k => k !== 'Vlastnik');
+    }
 
     const detailsForForm = createDetailsForForm(parentId, asset.details, order);
 
@@ -1116,9 +1135,18 @@ function renderNewSupportAssetForm(categoryId) {
         let detailOrder = state.defaultSupportAssetOrder || [];
         const path = utils.getPathForAsset(categoryId) || "";
         const isInfoSystem = categoryId === 'informacni-systemy' || path.includes('informacni-systemy');
+
+        // Změna: Detekce databáze a sítě pro filtrování pole 'Vlastnik'
+        const isDatabase = categoryId === 'databaze' || path.includes('podpurna/children/databaze');
+        const isNetwork = categoryId === 'site' || path.includes('podpurna/children/site');
         
         if (isInfoSystem) {
             detailOrder = state.infoSystemDetailOrder || detailOrder;
+        }
+
+        // Změna: Filtrace pole 'Vlastnik' pro DB a Sítě
+        if (isDatabase || isNetwork) {
+            detailOrder = detailOrder.filter(k => k !== 'Vlastnik');
         }
 
         const detailsForForm = createDetailsForForm(categoryId, {}, detailOrder);
@@ -1835,7 +1863,7 @@ dom.welcomeMessage.classList.add('hidden');
 dom.assetDetailContainer.classList.remove('hidden');
 
 // Odebere aktivní třídu ze všech položek menu a přidá ji tlačítku "Uživatelé"
-document.querySelectorAll('.sidebar-item.active, #nav-btn-services-report.active').forEach(el => el.classList.remove('active'));
+document.querySelectorAll('.sidebar-item.active, #nav-btn-users.active, #nav-btn-services-report.active').forEach(el => el.classList.remove('active'));
 document.getElementById('nav-btn-users')?.classList.add('active');
 
 
