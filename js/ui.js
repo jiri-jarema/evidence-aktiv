@@ -210,7 +210,9 @@ export function showCategoryContent(categoryId) {
         return;
     }
     
-    if (asset.details) {
+    const hasChildren = asset.children && (typeof asset.children === 'object') && Object.keys(asset.children).length > 0;
+
+    if (asset.details && !hasChildren) {
         showAssetDetails(categoryId, utils.findParentId(categoryId));
         return;
     }
