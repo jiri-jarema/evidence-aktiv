@@ -273,12 +273,25 @@ export function showCategoryContent(categoryId) {
         addButton.className = 'px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600';
         addButton.onclick = () => renderNewServiceForm(categoryId);
         titleContainer.appendChild(addButton);
-    } else if (parentId === 'agendy' && (userRole === 'administrator' || (userRole === 'garant' && userOdbor === categoryId))) {
-        const addButton = document.createElement('button');
-        addButton.textContent = 'Přidat novou agendu';
-        addButton.className = 'px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600';
-        addButton.onclick = () => renderNewAgendaForm(categoryId);
-        titleContainer.appendChild(addButton);
+    } else if (parentId === 'agendy') {
+        // Agendy (úroveň odboru)
+        if (userRole === 'administrator' || (userRole === 'garant' && userOdbor === categoryId)) {
+             const addButton = document.createElement('button');
+             addButton.textContent = 'Přidat novou agendu';
+             addButton.className = 'px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 ml-2';
+             addButton.onclick = () => renderNewAgendaForm(categoryId);
+             titleContainer.appendChild(addButton);
+        }
+        
+        // Tlačítko pro úpravu odboru (včetně Garanta odboru)
+        if (userRole === 'administrator') {
+             const editOdborButton = document.createElement('button');
+             editOdborButton.textContent = 'Upravit odbor';
+             editOdborButton.className = 'px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 ml-2';
+             editOdborButton.onclick = () => renderEditDepartmentForm(categoryId);
+             titleContainer.appendChild(editOdborButton);
+        }
+
     } else if ((parentId === 'primarni' || parentId === 'podpurna') && userRole === 'administrator') {
         if (categoryId !== 'sluzby') {
             const addButton = document.createElement('button');
@@ -290,6 +303,18 @@ export function showCategoryContent(categoryId) {
     }
 
     dom.assetDetailContainer.appendChild(titleContainer);
+
+    // Zobrazení Garanta odboru (pokud jsme na úrovni odboru)
+    if (parentId === 'agendy' && asset.details) {
+        const detailsDiv = document.createElement('div');
+        detailsDiv.className = 'mb-6 p-4 bg-gray-50 rounded border border-gray-200';
+        if (asset.details.Garant && asset.details.Garant.value) {
+            detailsDiv.innerHTML = `<span class="font-bold text-gray-700">Garant odboru:</span> ${asset.details.Garant.value}`;
+        } else {
+            detailsDiv.innerHTML = `<span class="text-gray-500 italic">Garant odboru není nastaven.</span>`;
+        }
+        dom.assetDetailContainer.appendChild(detailsDiv);
+    }
 
     const listContainer = document.createElement('div');
     listContainer.className = 'flex flex-col space-y-2';
@@ -449,6 +474,10 @@ function renderGenericDetails(asset, assetId, changedKeys = []) {
     const isService = asset.type === 'jednotliva-sluzba';
     const isInfoSystem = assetPath.startsWith('primarni/children/informacni-systemy');
 
+    // Změna: Detekce databáze a sítě
+    const isDatabase = assetPath.includes('podpurna/children/databaze');
+    const isNetwork = assetPath.includes('podpurna/children/site');
+
     let keysToRender = [];
     if (isAgenda) {
         keysToRender = [...state.detailOrder];
@@ -460,6 +489,16 @@ function renderGenericDetails(asset, assetId, changedKeys = []) {
         keysToRender.push("Regulovaná služba");
     } else {
         keysToRender = state.defaultSupportAssetOrder.filter(k => asset.details && asset.details[k] !== undefined);
+    }
+
+    // Změna: Odstranění Vlastník pro Databáze a Sítě
+    if (isDatabase || isNetwork) {
+        keysToRender = keysToRender.filter(k => k !== 'Vlastnik');
+    }
+    
+    // Změna: Odstranění Spravce_zastupce pro Databáze
+    if (isDatabase) {
+        keysToRender = keysToRender.filter(k => k !== 'Spravce_zastupce');
     }
 
     if (keysToRender.length > 0) {
@@ -514,6 +553,16 @@ function renderGenericDetails(asset, assetId, changedKeys = []) {
                     dd.appendChild(ul);
                 } else {
                     dd.textContent = "Žádná data z připojených IS.";
+                }
+            } else if (isAgenda && key === "Garant") {
+                // --- Načítání Garanta z nadřazeného odboru ---
+                const parentId = utils.findParentId(assetId);
+                const allAssets = state.getAllAssets();
+                const parentAsset = allAssets[parentId];
+                if (parentAsset && parentAsset.details && parentAsset.details.Garant) {
+                     dd.textContent = parentAsset.details.Garant.value || '-';
+                } else {
+                     dd.textContent = '-';
                 }
             } else if (!detail) {
                 dd.textContent = '-';
@@ -1034,9 +1083,24 @@ function renderSupportAssetEditForm(assetId) {
     const isService = asset.type === 'jednotliva-sluzba';
     const isInfoSystem = utils.getPathForAsset(assetId).startsWith('primarni/children/informacni-systemy');
 
+    // Změna: Detekce databáze a sítě pro filtrování pole 'Vlastnik'
+    const assetPath = utils.getPathForAsset(assetId);
+    const isDatabase = assetPath.includes('podpurna/children/databaze');
+    const isNetwork = assetPath.includes('podpurna/children/site');
+
     let order = state.defaultSupportAssetOrder.filter(k => (asset.details && asset.details[k] !== undefined));
     if (isService) order = state.serviceDetailOrder;
     if (isInfoSystem) order = state.infoSystemDetailOrder;
+
+    // Změna: Filtrace pole 'Vlastnik' pro DB a Sítě
+    if (isDatabase || isNetwork) {
+        order = order.filter(k => k !== 'Vlastnik');
+    }
+    
+    // Změna: Filtrace pole 'Spravce_zastupce' pro DB
+    if (isDatabase) {
+        order = order.filter(k => k !== 'Spravce_zastupce');
+    }
 
     const detailsForForm = createDetailsForForm(parentId, asset.details, order);
 
@@ -1116,9 +1180,23 @@ function renderNewSupportAssetForm(categoryId) {
         let detailOrder = state.defaultSupportAssetOrder || [];
         const path = utils.getPathForAsset(categoryId) || "";
         const isInfoSystem = categoryId === 'informacni-systemy' || path.includes('informacni-systemy');
+
+        // Změna: Detekce databáze a sítě pro filtrování pole 'Vlastnik'
+        const isDatabase = categoryId === 'databaze' || path.includes('podpurna/children/databaze');
+        const isNetwork = categoryId === 'site' || path.includes('podpurna/children/site');
         
         if (isInfoSystem) {
             detailOrder = state.infoSystemDetailOrder || detailOrder;
+        }
+
+        // Změna: Filtrace pole 'Vlastnik' pro DB a Sítě
+        if (isDatabase || isNetwork) {
+            detailOrder = detailOrder.filter(k => k !== 'Vlastnik');
+        }
+        
+        // Změna: Filtrace pole 'Spravce_zastupce' pro DB
+        if (isDatabase) {
+            detailOrder = detailOrder.filter(k => k !== 'Spravce_zastupce');
         }
 
         const detailsForForm = createDetailsForForm(categoryId, {}, detailOrder);
@@ -1178,9 +1256,11 @@ function renderNewSupportAssetForm(categoryId) {
 function renderEditFormFields(formFragment, assetId, details, detailOrder, context = {}) {
     detailOrder.forEach(key => {
         
-        // Změna: Skrýt pole "Zabezpečení zpracování - elektronické" ve formulářích pro agendy
-        if ((context.isNewAgenda || context.isAgenda) && key === "Zabezpečení zpracování - elektronické") {
-            return;
+        // Změna: Skrýt pole "Zabezpečení zpracování - elektronické" a "Garant" ve formulářích pro agendy
+        if ((context.isNewAgenda || context.isAgenda)) {
+            if (key === "Zabezpečení zpracování - elektronické" || key === "Garant") {
+                return;
+            }
         }
 
         const detail = details[key];
@@ -1835,7 +1915,7 @@ dom.welcomeMessage.classList.add('hidden');
 dom.assetDetailContainer.classList.remove('hidden');
 
 // Odebere aktivní třídu ze všech položek menu a přidá ji tlačítku "Uživatelé"
-document.querySelectorAll('.sidebar-item.active, #nav-btn-services-report.active').forEach(el => el.classList.remove('active'));
+document.querySelectorAll('.sidebar-item.active, #nav-btn-users.active, #nav-btn-services-report.active').forEach(el => el.classList.remove('active'));
 document.getElementById('nav-btn-users')?.classList.add('active');
 
 
@@ -1956,7 +2036,30 @@ document.getElementById('nav-btn-users')?.classList.add('active');
                  }
             });
         };
+        const changePassBtn = document.createElement('button');
+        changePassBtn.className = 'px-2 py-1 rounded bg-yellow-500 text-white hover:bg-yellow-600';
+        changePassBtn.textContent = 'Změnit heslo';
+        changePassBtn.onclick = async () => {
+            const newPass = prompt(`Zadejte nové heslo pro uživatele ${info.email}:`);
+            if (newPass) {
+                if (newPass.length < 6) {
+                    alert('Heslo musí mít alespoň 6 znaků.');
+                    return;
+                }
+                showLoader();
+                try {
+                    await api.adminChangeUserPassword(uid, newPass);
+                    alert('Heslo bylo úspěšně změněno.');
+                } catch (e) {
+                    console.error(e);
+                    alert('Chyba při změně hesla: ' + (e.message || e));
+                } finally {
+                    hideLoader();
+                }
+            }
+        };
         tdActions.appendChild(editBtn);
+        tdActions.appendChild(changePassBtn);
         tdActions.appendChild(deleteBtn);
         tr.appendChild(tdActions);
 
@@ -2263,4 +2366,120 @@ function renderNewServiceForm(categoryId) {
             hideLoader();
         }
     };
+}
+
+// --- NOVÁ FUNKCE: Editace odboru (Název a Garant) ---
+function renderEditDepartmentForm(odborId) {
+    const allAssets = state.getAllAssets();
+    const odbor = allAssets[odborId];
+    dom.assetDetailContainer.innerHTML = '';
+
+    const title = document.createElement('h2');
+    title.textContent = `Úprava odboru: ${odbor.name}`;
+    title.className = 'text-3xl font-bold mb-6 pb-2 border-b border-gray-300';
+    dom.assetDetailContainer.appendChild(title);
+
+    const form = document.createElement('form');
+    form.id = `form-odbor-${odborId}`;
+    form.className = 'edit-form-grid';
+
+    // Název
+    const nameLabel = document.createElement('label');
+    nameLabel.textContent = 'Název odboru';
+    nameLabel.htmlFor = 'input-odbor-name';
+    const nameInputContainer = document.createElement('div');
+    const nameInput = document.createElement('input');
+    nameInput.type = 'text';
+    nameInput.id = 'input-odbor-name';
+    nameInput.value = odbor.name;
+    nameInput.className = 'form-input';
+    nameInput.required = true;
+    nameInputContainer.appendChild(nameInput);
+    form.appendChild(nameLabel);
+    form.appendChild(nameInputContainer);
+
+    // Garant
+    const garantLabel = document.createElement('label');
+    garantLabel.textContent = 'Garant odboru';
+    garantLabel.htmlFor = 'input-odbor-garant';
+    const garantInputContainer = document.createElement('div');
+    const garantInput = document.createElement('input');
+    garantInput.type = 'text';
+    garantInput.id = 'input-odbor-garant';
+    // Načtení stávajícího garanta z details, pokud existuje
+    garantInput.value = odbor.details && odbor.details.Garant ? odbor.details.Garant.value : '';
+    garantInput.className = 'form-input';
+    garantInputContainer.appendChild(garantInput);
+    form.appendChild(garantLabel);
+    form.appendChild(garantInputContainer);
+
+    // Tlačítka
+    const buttonContainer = document.createElement('div');
+    buttonContainer.className = 'mt-6 flex justify-end space-x-4 col-span-2';
+
+    const saveButton = document.createElement('button');
+    saveButton.textContent = 'Uložit';
+    saveButton.className = 'px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700';
+    
+    saveButton.onclick = async (e) => {
+        e.preventDefault();
+        showLoader();
+        try {
+            const newName = nameInput.value.trim();
+            const newGarant = garantInput.value.trim();
+            
+            if (!newName) {
+                alert("Název odboru je povinný.");
+                hideLoader();
+                return;
+            }
+            
+            await saveDepartmentChanges(odborId, newName, newGarant);
+            const reloaded = await reloadDataAndRebuildUI();
+            if (reloaded) {
+                showCategoryContent(odborId);
+            }
+        } catch (error) {
+             console.error("Chyba při ukládání odboru:", error);
+             alert("Uložení selhalo.");
+        } finally {
+            hideLoader();
+        }
+    };
+
+    const cancelButton = document.createElement('button');
+    cancelButton.textContent = 'Zrušit';
+    cancelButton.className = 'px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300';
+    cancelButton.onclick = (e) => {
+        e.preventDefault();
+        showCategoryContent(odborId);
+    };
+
+    buttonContainer.appendChild(cancelButton);
+    buttonContainer.appendChild(saveButton);
+    form.appendChild(buttonContainer);
+
+    dom.assetDetailContainer.appendChild(form);
+}
+
+// --- NOVÁ FUNKCE: Uložení změn odboru ---
+async function saveDepartmentChanges(odborId, newName, newGarant) {
+    const assetPath = `agendy/children/${odborId}`;
+    
+    // Použijeme existující updateSupportAsset API, které je dostatečně obecné (aktualizuje name a details)
+    // Musíme připravit strukturu details
+    const updatedDetails = {
+        Garant: {
+            value: newGarant
+        }
+    };
+
+    const payload = {
+        assetPath,
+        newName,
+        updatedDetails,
+        reciprocalLinks: null // Odbory nemají reciproční vazby
+    };
+
+    return await api.updateSupportAsset(payload);
 }
