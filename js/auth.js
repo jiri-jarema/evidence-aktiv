@@ -4,7 +4,9 @@ import { loadInitialData } from './api.js';
 import * as dom from './dom.js';
 import { flattenData, buildParentMap } from './utils.js';
 import { buildNav } from './ui.js';
-import firebase from 'firebase/app'; // Potřebné pro reauthenticate
+
+// POZNÁMKA: Řádek s 'import firebase ...' byl odstraněn. 
+// Firebase je načten globálně přes script tagy v index.html a je dostupný jako globální proměnná 'firebase'.
 
 /**
  * Loads all data from the server, processes it, and rebuilds the entire UI.
@@ -146,6 +148,7 @@ export function initAuth() {
             if (!user) return;
 
             // Re-authenticate user before changing password (security requirement)
+            // Používáme globální objekt firebase, který je dostupný díky script tagům v index.html
             const credential = firebase.auth.EmailAuthProvider.credential(user.email, currentPassword);
 
             try {
