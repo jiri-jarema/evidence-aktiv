@@ -1,7 +1,3 @@
-{
-type: uploaded file
-fileName: jiri-jarema/evidence-aktiv/evidence-aktiv-fdbcbbe7112c38f531d80bc9d8df8b6eb9b9eae5/js/utils.js
-fullContent:
 import { getAllAssets, getParentMap, getSharedOptions } from './state.js';
 
 /**
@@ -206,5 +202,4 @@ export function getLinkedISSecurityForAgenda(agendaId) {
     });
     
     return results;
-}
 }

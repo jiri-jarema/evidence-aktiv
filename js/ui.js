@@ -1,7 +1,3 @@
-{
-type: uploaded file
-fileName: jiri-jarema/evidence-aktiv/evidence-aktiv-fdbcbbe7112c38f531d80bc9d8df8b6eb9b9eae5/js/ui.js
-fullContent:
 import * as dom from './dom.js';
 import * as state from './state.js';
 import * as utils from './utils.js';
@@ -1839,7 +1835,7 @@ dom.welcomeMessage.classList.add('hidden');
 dom.assetDetailContainer.classList.remove('hidden');
 
 // Odebere aktivní třídu ze všech položek menu a přidá ji tlačítku "Uživatelé"
-document.querySelectorAll('.sidebar-item.active, #nav-btn-services-report.active').forEach(el => el.classList.remove('active'));
+document.querySelectorAll('.sidebar-item.active, #nav-btn-users.active, #nav-btn-services-report.active').forEach(el => el.classList.remove('active'));
 document.getElementById('nav-btn-users')?.classList.add('active');
 
 
@@ -2267,5 +2263,4 @@ function renderNewServiceForm(categoryId) {
             hideLoader();
         }
     };
-}
 }
