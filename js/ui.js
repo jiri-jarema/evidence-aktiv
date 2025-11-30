@@ -1956,7 +1956,30 @@ document.getElementById('nav-btn-users')?.classList.add('active');
                  }
             });
         };
+        const changePassBtn = document.createElement('button');
+        changePassBtn.className = 'px-2 py-1 rounded bg-yellow-500 text-white hover:bg-yellow-600';
+        changePassBtn.textContent = 'Změnit heslo';
+        changePassBtn.onclick = async () => {
+            const newPass = prompt(`Zadejte nové heslo pro uživatele ${info.email}:`);
+            if (newPass) {
+                if (newPass.length < 6) {
+                    alert('Heslo musí mít alespoň 6 znaků.');
+                    return;
+                }
+                showLoader();
+                try {
+                    await api.adminChangeUserPassword(uid, newPass);
+                    alert('Heslo bylo úspěšně změněno.');
+                } catch (e) {
+                    console.error(e);
+                    alert('Chyba při změně hesla: ' + (e.message || e));
+                } finally {
+                    hideLoader();
+                }
+            }
+        };
         tdActions.appendChild(editBtn);
+        tdActions.appendChild(changePassBtn);
         tdActions.appendChild(deleteBtn);
         tr.appendChild(tdActions);
 

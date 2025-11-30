@@ -240,6 +240,28 @@ export async function deleteUserByUid(uid) {
   return await res.json();
 }
 
+export async function adminChangeUserPassword(uid, newPassword) {
+  const user = getCurrentUser();
+  if (!user) throw new Error('Not authenticated');
+  const idToken = await user.getIdToken();
+  const res = await fetch('/.netlify/functions/admin-change-password', {
+    method: 'POST',
+    headers: { 'Authorization': `Bearer ${idToken}` },
+    body: JSON.stringify({ uid, newPassword })
+  });
+  if (!res.ok) {
+      const errorText = await res.text();
+      // Zkusíme parsovat JSON chybu, pokud existuje
+      try {
+          const errorJson = JSON.parse(errorText);
+          throw new Error(errorJson.error || errorText);
+      } catch (e) {
+          throw new Error(errorText);
+      }
+  }
+  return await res.json();
+}
+
 
 /**
  * Creates a new service category on the server.
