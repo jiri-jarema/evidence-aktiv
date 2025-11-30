@@ -501,7 +501,7 @@ function renderGenericDetails(asset, assetId, changedKeys = []) {
                 } else {
                     dd.textContent = '-';
                 }
-            } else if (isAgenda && key === "Zabezpečení zpracování - analogové") {
+            } else if (isAgenda && key === "Zabezpečení zpracování - elektronické") {
                 const linkedSecurity = utils.getLinkedISSecurityForAgenda(assetId);
                 if (linkedSecurity.length > 0) {
                     const ul = document.createElement('ul');
@@ -1178,8 +1178,8 @@ function renderNewSupportAssetForm(categoryId) {
 function renderEditFormFields(formFragment, assetId, details, detailOrder, context = {}) {
     detailOrder.forEach(key => {
         
-        // Změna: Skrýt pole "Zabezpečení zpracování - analogové" ve formulářích pro agendy
-        if ((context.isNewAgenda || context.isAgenda) && key === "Zabezpečení zpracování - analogové") {
+        // Změna: Skrýt pole "Zabezpečení zpracování - elektronické" ve formulářích pro agendy
+        if ((context.isNewAgenda || context.isAgenda) && key === "Zabezpečení zpracování - elektronické") {
             return;
         }
 
@@ -1835,7 +1835,7 @@ dom.welcomeMessage.classList.add('hidden');
 dom.assetDetailContainer.classList.remove('hidden');
 
 // Odebere aktivní třídu ze všech položek menu a přidá ji tlačítku "Uživatelé"
-document.querySelectorAll('.sidebar-item.active, #nav-btn-users.active, #nav-btn-services-report.active').forEach(el => el.classList.remove('active'));
+document.querySelectorAll('.sidebar-item.active, #nav-btn-services-report.active').forEach(el => el.classList.remove('active'));
 document.getElementById('nav-btn-users')?.classList.add('active');
 
 
