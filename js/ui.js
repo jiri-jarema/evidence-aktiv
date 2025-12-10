@@ -2641,10 +2641,9 @@ export function renderGDPRReport() {
         thead.innerHTML = `
             <tr>
                 <th class="border border-gray-400 px-2 py-2 w-10 text-center align-top">Poř.</th>
-                <th class="border border-gray-400 px-2 py-2 w-1/4 align-top">Účel zpracování</th>
+                <th class="border border-gray-400 px-2 py-2 w-1/3 align-top">Účel zpracování</th>
                 <th class="border border-gray-400 px-2 py-2 w-1/4 align-top">Právní základ</th>
-                <th class="border border-gray-400 px-2 py-2 w-1/6 align-top">Oprávněné zájmy správce</th>
-                <th class="border border-gray-400 px-2 py-2 w-1/6 align-top">Kategorie příjemců</th>
+                <th class="border border-gray-400 px-2 py-2 w-1/4 align-top">Kategorie příjemců</th>
                 <th class="border border-gray-400 px-2 py-2 align-top">Ukončení zpracování</th>
             </tr>
         `;
@@ -2692,11 +2691,7 @@ export function renderGDPRReport() {
             tdLegal.innerHTML = legalHtml || '-';
             tr.appendChild(tdLegal);
 
-            // 4. Oprávněné zájmy (Zůstává prázdné dle vzoru, data nejsou v systému)
-            const tdInterests = document.createElement('td');
-            tdInterests.className = 'border border-gray-400 px-2 py-2 align-top';
-            tdInterests.textContent = ''; 
-            tr.appendChild(tdInterests);
+            // 4. Oprávněné zájmy - ODSTRANĚNO
 
             // 5. Kategorie příjemců
             const tdRecipients = document.createElement('td');
