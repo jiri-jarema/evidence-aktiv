@@ -167,6 +167,21 @@ export function buildNav(data, parentElement, level = 0, parentKey = null) {
       btnReport.onclick = () => renderServicesReport();
       toolsSection.appendChild(btnReport);
 
+      // --- NOVÉ: Tlačítko pro GDPR sestavu (přístupné všem) ---
+      const btnGDPR = document.createElement('button');
+      btnGDPR.id = 'nav-btn-gdpr-report';
+      btnGDPR.innerHTML = `
+        <span class="flex items-center">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+            Záznamy zpracování OÚ
+        </span>`;
+      btnGDPR.className = 'w-full text-left px-3 py-2 rounded hover:bg-gray-100 font-medium text-gray-700 mb-1';
+      btnGDPR.onclick = () => renderGDPRReport();
+      toolsSection.appendChild(btnGDPR);
+      // --------------------------------------------------------
+
       const userRole = state.getUserRole();
       if (userRole === 'administrator') {
         const btnUsers = document.createElement('button');
@@ -240,7 +255,7 @@ export function showCategoryContent(categoryId) {
     dom.welcomeMessage.classList.add('hidden');
     dom.assetDetailContainer.classList.remove('hidden');
     dom.assetDetailContainer.innerHTML = '';
-    document.querySelectorAll('.sidebar-item.active, #nav-btn-users.active, #nav-btn-services-report.active').forEach(el => el.classList.remove('active'));
+    document.querySelectorAll('.sidebar-item.active, #nav-btn-users.active, #nav-btn-services-report.active, #nav-btn-gdpr-report.active').forEach(el => el.classList.remove('active'));
     document.querySelector(`.sidebar-item[data-id="${categoryId}"]`)?.classList.add('active');
 
     const parentId = utils.findParentId(categoryId);
@@ -372,7 +387,7 @@ export function showAssetDetails(assetId, parentId, changedKeys = []) {
     dom.welcomeMessage.classList.add('hidden');
     dom.assetDetailContainer.classList.remove('hidden');
     dom.assetDetailContainer.innerHTML = '';
-    document.querySelectorAll('.sidebar-item.active, #nav-btn-users.active, #nav-btn-services-report.active').forEach(el => el.classList.remove('active'));
+    document.querySelectorAll('.sidebar-item.active, #nav-btn-users.active, #nav-btn-services-report.active, #nav-btn-gdpr-report.active').forEach(el => el.classList.remove('active'));
 
     const navItem = document.querySelector(`.sidebar-item[data-id="${assetId}"]`);
     if (navItem) {
@@ -1981,7 +1996,7 @@ dom.welcomeMessage.classList.add('hidden');
 dom.assetDetailContainer.classList.remove('hidden');
 
 // Odebere aktivní třídu ze všech položek menu a přidá ji tlačítku "Uživatelé"
-document.querySelectorAll('.sidebar-item.active, #nav-btn-users.active, #nav-btn-services-report.active').forEach(el => el.classList.remove('active'));
+document.querySelectorAll('.sidebar-item.active, #nav-btn-users.active, #nav-btn-services-report.active, #nav-btn-gdpr-report.active').forEach(el => el.classList.remove('active'));
 document.getElementById('nav-btn-users')?.classList.add('active');
 
 
@@ -2154,7 +2169,7 @@ export function renderServicesReport() {
     dom.assetDetailContainer.innerHTML = '';
 
     // Aktualizace aktivního tlačítka v menu
-    document.querySelectorAll('.sidebar-item.active, #nav-btn-users.active, #nav-btn-services-report.active').forEach(el => el.classList.remove('active'));
+    document.querySelectorAll('.sidebar-item.active, #nav-btn-users.active, #nav-btn-services-report.active, #nav-btn-gdpr-report.active').forEach(el => el.classList.remove('active'));
     document.getElementById('nav-btn-services-report')?.classList.add('active');
 
     const container = dom.assetDetailContainer;
@@ -2548,4 +2563,192 @@ async function saveDepartmentChanges(odborId, newName, newGarant) {
     };
 
     return await api.updateSupportAsset(payload);
+}
+
+// --- NOVÁ FUNKCE: Generování sestavy Záznamy zpracování osobních údajů ---
+export function renderGDPRReport() {
+    dom.welcomeMessage.classList.add('hidden');
+    dom.assetDetailContainer.classList.remove('hidden');
+    dom.assetDetailContainer.innerHTML = '';
+
+    // Aktualizace aktivního tlačítka v menu
+    document.querySelectorAll('.sidebar-item.active, #nav-btn-users.active, #nav-btn-services-report.active, #nav-btn-gdpr-report.active').forEach(el => el.classList.remove('active'));
+    document.getElementById('nav-btn-gdpr-report')?.classList.add('active');
+
+    const container = dom.assetDetailContainer;
+
+    // Hlavička a tlačítko tisk (zobrazí se pouze na obrazovce)
+    const headerDiv = document.createElement('div');
+    headerDiv.className = 'flex justify-between items-center mb-6 pb-2 border-b border-gray-300 print:hidden';
+    
+    const title = document.createElement('h2');
+    title.textContent = 'Záznamy zpracování OÚ';
+    title.className = 'text-3xl font-bold';
+    
+    const printBtn = document.createElement('button');
+    printBtn.textContent = 'Tisk sestavy';
+    printBtn.className = 'px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700';
+    printBtn.onclick = () => window.print();
+
+    headerDiv.appendChild(title);
+    headerDiv.appendChild(printBtn);
+    container.appendChild(headerDiv);
+
+    // Hlavička dokumentu pro tisk
+    const docHeader = document.createElement('div');
+    docHeader.className = 'mb-8 font-sans';
+    docHeader.innerHTML = `
+        <div class="text-center mb-6">
+            <h1 class="text-xl font-bold uppercase">Informace subjektům údajů poskytované dle čl. 13 Nařízení GDPR</h1>
+            <h2 class="text-lg">a Záznamy o činnostech zpracování dle čl. 30 GDPR</h2>
+        </div>
+        <div class="border-2 border-gray-400 p-4 rounded bg-gray-50 text-sm">
+            <p class="mb-1"><span class="font-bold">Správce osobních údajů:</span> Město Vítkov, náměstí Jana Zajíce 7, 749 01 Vítkov, IČ 00300870</p>
+            <p><span class="font-bold">Pověřenec:</span> Mgr. Jiří Jarema, poverenec.vitkov@outlook.cz, tel.: 775 248 345</p>
+        </div>
+    `;
+    container.appendChild(docHeader);
+
+    const assetData = state.getAssetData();
+    const agendyData = assetData.agendy?.children || {};
+    const sharedOptions = state.getSharedOptions();
+
+    // Iterace přes odbory (třídění dle abecedy)
+    const sortedDeptKeys = Object.keys(agendyData).sort((a, b) => agendyData[a].name.localeCompare(agendyData[b].name, 'cs'));
+
+    if (sortedDeptKeys.length === 0) {
+        container.appendChild(document.createTextNode('Žádná data k zobrazení.'));
+        return;
+    }
+
+    sortedDeptKeys.forEach(deptId => {
+        const dept = agendyData[deptId];
+        if (!dept.children) return;
+
+        const deptSection = document.createElement('div');
+        deptSection.className = 'mb-8 break-inside-avoid';
+
+        const deptTitle = document.createElement('h3');
+        deptTitle.textContent = dept.name;
+        deptTitle.className = 'text-xl font-bold text-blue-800 mb-4 border-b-2 border-blue-800 pb-1 mt-6 uppercase';
+        deptSection.appendChild(deptTitle);
+
+        const table = document.createElement('table');
+        table.className = 'w-full text-left border-collapse border border-gray-400 text-xs shadow-sm';
+        
+        const thead = document.createElement('thead');
+        thead.className = 'bg-gray-100 print:bg-gray-200';
+        thead.innerHTML = `
+            <tr>
+                <th class="border border-gray-400 px-2 py-2 w-10 text-center align-top">Poř.</th>
+                <th class="border border-gray-400 px-2 py-2 w-1/4 align-top">Účel zpracování</th>
+                <th class="border border-gray-400 px-2 py-2 w-1/4 align-top">Právní základ</th>
+                <th class="border border-gray-400 px-2 py-2 w-1/6 align-top">Oprávněné zájmy správce</th>
+                <th class="border border-gray-400 px-2 py-2 w-1/6 align-top">Kategorie příjemců</th>
+                <th class="border border-gray-400 px-2 py-2 align-top">Ukončení zpracování</th>
+            </tr>
+        `;
+        table.appendChild(thead);
+
+        const tbody = document.createElement('tbody');
+        let counter = 1;
+        const sortedAgendas = Object.values(dept.children).sort((a, b) => a.name.localeCompare(b.name, 'cs'));
+
+        sortedAgendas.forEach(agenda => {
+            const tr = document.createElement('tr');
+            tr.className = 'break-inside-avoid';
+            const details = agenda.details || {};
+
+            // 1. Pořadí
+            const tdId = document.createElement('td');
+            tdId.className = 'border border-gray-400 px-2 py-2 text-center align-top font-bold';
+            tdId.textContent = counter++;
+            tr.appendChild(tdId);
+
+            // 2. Účel zpracování (Název agendy nebo explicitní účel)
+            const tdPurpose = document.createElement('td');
+            tdPurpose.className = 'border border-gray-400 px-2 py-2 align-top font-semibold';
+            tdPurpose.textContent = details['Účel zpracování']?.value || agenda.name;
+            tr.appendChild(tdPurpose);
+
+            // 3. Právní základ
+            const tdLegal = document.createElement('td');
+            tdLegal.className = 'border border-gray-400 px-2 py-2 align-top';
+            let legalHtml = '';
+            
+            if (details['Zákonnost zpracování']?.value) {
+                const lawVal = details['Zákonnost zpracování'].value;
+                const lawOption = sharedOptions.lawfulness.find(opt => opt.startsWith(lawVal));
+                if (lawOption) {
+                    legalHtml += `<div class="mb-2 font-bold">${lawOption}</div>`;
+                } else {
+                    legalHtml += `<div class="mb-2 font-bold">${lawVal}</div>`;
+                }
+            }
+            
+            if (details['Legislativa']?.value) {
+                legalHtml += `<div class="italic text-gray-700">${details['Legislativa'].value}</div>`;
+            }
+            tdLegal.innerHTML = legalHtml || '-';
+            tr.appendChild(tdLegal);
+
+            // 4. Oprávněné zájmy (Zůstává prázdné dle vzoru, data nejsou v systému)
+            const tdInterests = document.createElement('td');
+            tdInterests.className = 'border border-gray-400 px-2 py-2 align-top';
+            tdInterests.textContent = ''; 
+            tr.appendChild(tdInterests);
+
+            // 5. Kategorie příjemců
+            const tdRecipients = document.createElement('td');
+            tdRecipients.className = 'border border-gray-400 px-2 py-2 align-top';
+            const recipients = [];
+            const recDetail = details['Kategorie příjemců osobních údajů'];
+            
+            if (recDetail && recDetail.checked && sharedOptions.recipientCategories) {
+                recDetail.checked.forEach((isChecked, idx) => {
+                    if (isChecked && sharedOptions.recipientCategories[idx]) {
+                        let label = sharedOptions.recipientCategories[idx];
+                        if (label.toLowerCase().includes('jiné') && recDetail.details && recDetail.details[idx]) {
+                            label += `: ${recDetail.details[idx]}`;
+                        }
+                        recipients.push(label);
+                    }
+                });
+            }
+            
+            if (recipients.length > 0) {
+                const ul = document.createElement('ul');
+                ul.className = 'list-disc list-inside';
+                recipients.forEach(r => {
+                    const li = document.createElement('li');
+                    li.textContent = r;
+                    ul.appendChild(li);
+                });
+                tdRecipients.appendChild(ul);
+            } else {
+                tdRecipients.textContent = '-';
+            }
+            tr.appendChild(tdRecipients);
+
+            // 6. Ukončení zpracování
+            const tdTerm = document.createElement('td');
+            tdTerm.className = 'border border-gray-400 px-2 py-2 align-top';
+            const termData = details['Lhůty pro výmaz']?.value || {};
+            let termHtml = '';
+            if (termData['ukončení zpracování']) {
+                termHtml += `<div class="mb-1">${termData['ukončení zpracování']}</div>`;
+            }
+            if (termData['skartační lhůta']) {
+                termHtml += `<div class="font-mono text-gray-600 bg-gray-50 inline-block px-1 rounded mt-1 border border-gray-200">Skartační znak: ${termData['skartační lhůta']}</div>`;
+            }
+            tdTerm.innerHTML = termHtml || '-';
+            tr.appendChild(tdTerm);
+
+            tbody.appendChild(tr);
+        });
+
+        table.appendChild(tbody);
+        deptSection.appendChild(table);
+        container.appendChild(deptSection);
+    });
 }
