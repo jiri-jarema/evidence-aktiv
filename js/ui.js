@@ -811,7 +811,8 @@ function createDetailsForForm(categoryId, existingDetails, detailOrder) {
             continue;
         }
 
-        if (LINK_FIELDS.includes(key.replace(/_/g, ' '))) {
+        // OPRAVA: Rozšířená kontrola LINK_FIELDS - kontroluje i klíč s podtržítky
+        if (LINK_FIELDS.includes(key) || LINK_FIELDS.includes(key.replace(/_/g, ' '))) {
             detailsForForm[key] = { linksTo: [] };
             continue;
         }
@@ -1489,7 +1490,7 @@ function renderEditFormFields(formFragment, assetId, details, detailOrder, conte
                 select.appendChild(optionEl);
             });
             inputContainer.appendChild(select);
-        } else if (LINK_FIELDS.includes(key) || detail.linksTo !== undefined) {
+        } else if (LINK_FIELDS.includes(key) || LINK_FIELDS.includes(key.replace(/_/g, ' ')) || detail.linksTo !== undefined) {
             if (detail.linksTo === undefined) {
                 detail.linksTo = [];
             }
@@ -1787,6 +1788,8 @@ async function saveSupportAssetChanges(assetId) {
                                     const serviceGrandparentId = utils.findParentId(serviceParentId);
                                     return `${serviceGrandparentId}/children/${serviceParentId}/children/${targetId}/details/${linkConfig.reciprocalField.replace(/_/g, ' ')}/linksTo`;
                                 } else {
+                                    // OPRAVA: Odstraněno automatické nahrazování podtržítek za mezery.
+                                    // Klíč v `reciprocalField` musí být v `state.js` definován přesně.
                                     return `${linkConfig.targetCategoryPath}/children/${targetId}/details/${linkConfig.reciprocalField}/linksTo`;
                                 }
                             };
@@ -1867,6 +1870,7 @@ async function saveNewSupportAsset(categoryId) {
                         // Standard link handling
                         newLinks.forEach(targetId => {
                             reciprocalLinks.toAdd.push({
+                                // OPRAVA: Odstraněno automatické nahrazování podtržítek za mezery.
                                 targetPath: `${linkConfig.targetCategoryPath}/children/${targetId}/details/${linkConfig.reciprocalField}/linksTo`,
                                 sourceId: newAssetId
                             });
