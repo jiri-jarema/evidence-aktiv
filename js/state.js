@@ -66,7 +66,8 @@ export const reciprocalMap = {
         },
         'Provozovane_informacni_systemy': {
             targetCategoryPath: 'primarni/children/informacni-systemy',
-            reciprocalField: 'Aplikační_server'
+            // OPRAVA: Zde musí být "Aplikační server" s mezerou, protože tak se klíč jmenuje v IS
+            reciprocalField: 'Aplikační server'
         },
         'Zalohovane_databaze': {
              targetCategoryPath: 'podpurna/children/databaze',
@@ -90,6 +91,7 @@ export const reciprocalMap = {
         },
         'Aplikační_server': {
             targetCategoryPath: 'podpurna/children/servery',
+            // OPRAVA: Zde musí být podtržítka, protože tak se klíč jmenuje v Serverech
             reciprocalField: 'Provozovane_informacni_systemy'
         },
         'Sítě': {
