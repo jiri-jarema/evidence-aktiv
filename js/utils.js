@@ -227,7 +227,6 @@ export function getReciprocalLinksForDeletion(assetId) {
     // Iterate through details of the asset being deleted
     for (const key in asset.details) {
         // We only care about fields defined in the reciprocal map
-        // Note: reciprocalMap keys use underscores instead of spaces, need to handle that
         const mapKey = key.replace(/ /g, '_');
         const linkConfig = config[mapKey];
 
@@ -244,7 +243,9 @@ export function getReciprocalLinksForDeletion(assetId) {
                             agendaLinks.push(`${targetPath}/details/Způsob zpracování/value`);
                         } else {
                             // Standard links
-                            simpleLinks.push(`${targetPath}/details/${linkConfig.reciprocalField.replace(/_/g, ' ')}/linksTo`);
+                            // OPRAVA: Použít reciprocalField tak, jak je definován v konfiguraci (s podtržítky nebo mezerami),
+                            // nenahrazovat automaticky podtržítka mezerami. To je nutné pro pole jako "Provozovane_informacni_systemy".
+                            simpleLinks.push(`${targetPath}/details/${linkConfig.reciprocalField}/linksTo`);
                         }
                     }
                 });
