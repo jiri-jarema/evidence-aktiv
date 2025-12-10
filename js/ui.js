@@ -752,6 +752,14 @@ function createDetailsForForm(categoryId, existingDetails, detailOrder) {
     for (const key of detailOrder) {
         if (existingDetails && existingDetails[key] !== undefined) {
             detailsForForm[key] = JSON.parse(JSON.stringify(existingDetails[key]));
+            
+            // OPRAVA: Pokud je pole vazební, musíme zajistit existenci pole linksTo
+            // Důležité pro případy, kdy byla data vytvořena dříve bez struktury linksTo
+            if (LINK_FIELDS.includes(key) || LINK_FIELDS.includes(key.replace(/_/g, ' '))) {
+                if (detailsForForm[key].linksTo === undefined) {
+                    detailsForForm[key].linksTo = [];
+                }
+            }
             continue;
         }
 
@@ -802,6 +810,14 @@ function createDetailsForForm(categoryId, existingDetails, detailOrder) {
                  }
             }
             
+            // OPRAVA: Pokud je pole vazební, musíme vynutit existenci pole linksTo, 
+            // i když ho vzorový asset (sampleAsset) nemá (např. má jen "value").
+            if (LINK_FIELDS.includes(key) || LINK_FIELDS.includes(key.replace(/_/g, ' '))) {
+                if (template.linksTo === undefined) {
+                    template.linksTo = [];
+                }
+            }
+
             detailsForForm[key] = template;
             continue;
         }
