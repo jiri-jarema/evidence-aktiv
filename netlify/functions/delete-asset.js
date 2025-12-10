@@ -42,7 +42,7 @@ exports.handler = async function(event, context) {
     const { user, error } = await verifyUser(event.headers.authorization);
     if (error) return error;
 
-    const { assetPath } = JSON.parse(event.body);
+    const { assetPath, assetId, reciprocalLinks } = JSON.parse(event.body);
 
     if (!assetPath) {
         return { statusCode: 400, body: JSON.stringify({ error: 'Bad Request: Missing assetPath.' }) };
@@ -51,7 +51,7 @@ exports.handler = async function(event, context) {
     // Kontrola oprávnění pro mazání
     let isAllowed = false;
     
-    // Administrator může mazat cokoliv (co není agenda - pro ty je delete-agenda.js, ale technicky by to šlo i tady)
+    // Administrator může mazat cokoliv
     if (user.role === 'administrator') {
         isAllowed = true;
     } 
@@ -72,17 +72,55 @@ exports.handler = async function(event, context) {
     }
 
     try {
-        // Jednoduché smazání uzlu
-        // Poznámka: Toto smazání neřeší automatické odstranění recipročních vazeb v jiných objektech.
-        // Pro dokonalou integritu dat by bylo nutné projít databázi a odstranit ID smazaného aktiva z polí 'linksTo'.
-        // Vzhledem k složitosti a riziku chyb při procházení celého stromu se zde provádí pouze smazání samotného objektu.
-        // Rozbité odkazy v UI nebudou fungovat (zobrazí se jako neaktivní nebo zmizí při příštím uložení).
+        const updates = {};
         
-        await db.ref(assetPath).remove();
+        // 1. Mark the asset itself for deletion
+        updates[assetPath] = null;
+
+        // 2. Remove reciprocal links (Standard links - arrays of IDs)
+        if (reciprocalLinks && reciprocalLinks.simpleLinks && Array.isArray(reciprocalLinks.simpleLinks)) {
+            for (const linkPath of reciprocalLinks.simpleLinks) {
+                const snapshot = await db.ref(linkPath).once('value');
+                let links = snapshot.val();
+                
+                if (Array.isArray(links)) {
+                    // Filter out the deleted asset ID
+                    const filteredLinks = links.filter(id => id !== assetId);
+                    // Update: if empty, set to null or empty string depending on convention
+                    updates[linkPath] = filteredLinks.length > 0 ? filteredLinks : null;
+                }
+            }
+        }
+
+        // 3. Remove reciprocal links in Agendas (Complex object structure in "Způsob zpracování")
+        if (reciprocalLinks && reciprocalLinks.agendaLinks && Array.isArray(reciprocalLinks.agendaLinks)) {
+            for (const linkPath of reciprocalLinks.agendaLinks) {
+                // linkPath points to ".../details/Způsob zpracování/value" which is an array of method objects
+                const snapshot = await db.ref(linkPath).once('value');
+                let methods = snapshot.val();
+
+                if (Array.isArray(methods)) {
+                    // Map over the methods array to modify the relevant item without changing array length
+                    const updatedMethods = methods.map(method => {
+                        // Find the method corresponding to AIS
+                        if (method.label && method.label.includes('agendový informační systém') && method.linksTo) {
+                            // Filter out the deleted asset ID from the linksTo array
+                            const newLinksTo = method.linksTo.filter(id => id !== assetId);
+                            return { ...method, linksTo: newLinksTo };
+                        }
+                        return method;
+                    });
+                    updates[linkPath] = updatedMethods;
+                }
+            }
+        }
+
+        // 4. Perform atomic update
+        await db.ref().update(updates);
 
         return {
             statusCode: 200,
-            body: JSON.stringify({ success: true, message: 'Asset deleted successfully.' }),
+            body: JSON.stringify({ success: true, message: 'Asset deleted successfully including reciprocal links.' }),
         };
     } catch (err) {
         console.error("Error deleting asset:", err);

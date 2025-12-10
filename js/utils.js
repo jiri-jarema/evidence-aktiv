@@ -1,4 +1,4 @@
-import { getAllAssets, getParentMap, getSharedOptions } from './state.js';
+import { getAllAssets, getParentMap, getSharedOptions, reciprocalMap, getAssetData } from './state.js';
 
 /**
  * Sanitizes text to be used as part of an ID.
@@ -202,4 +202,55 @@ export function getLinkedISSecurityForAgenda(agendaId) {
     });
     
     return results;
+}
+
+/**
+ * Identifies reciprocal links that need to be removed when an asset is deleted.
+ * @param {string} assetId - ID of the asset being deleted.
+ * @returns {object} - Object containing arrays of paths to update ({ simpleLinks: [], agendaLinks: [] }).
+ */
+export function getReciprocalLinksForDeletion(assetId) {
+    const allAssets = getAllAssets();
+    const asset = allAssets[assetId];
+    if (!asset || !asset.details) return { simpleLinks: [], agendaLinks: [] };
+
+    const assetPath = getPathForAsset(assetId);
+    
+    // Find matching category in reciprocalMap
+    const categoryKey = Object.keys(reciprocalMap).find(key => assetPath.startsWith(key));
+    if (!categoryKey) return { simpleLinks: [], agendaLinks: [] };
+
+    const config = reciprocalMap[categoryKey];
+    const simpleLinks = [];
+    const agendaLinks = [];
+
+    // Iterate through details of the asset being deleted
+    for (const key in asset.details) {
+        // We only care about fields defined in the reciprocal map
+        // Note: reciprocalMap keys use underscores instead of spaces, need to handle that
+        const mapKey = key.replace(/ /g, '_');
+        const linkConfig = config[mapKey];
+
+        if (linkConfig && asset.details[key].linksTo) {
+            const linkedIds = asset.details[key].linksTo;
+            if (Array.isArray(linkedIds)) {
+                linkedIds.forEach(targetId => {
+                    // Check if target exists
+                    if (allAssets[targetId]) {
+                        const targetPath = getPathForAsset(targetId);
+                        
+                        // Handle Agenda links (special case because of complex "Způsob zpracování" structure)
+                        if (linkConfig.targetCategoryPath === 'agendy' && linkConfig.reciprocalField === 'Způsob zpracování') {
+                            agendaLinks.push(`${targetPath}/details/Způsob zpracování/value`);
+                        } else {
+                            // Standard links
+                            simpleLinks.push(`${targetPath}/details/${linkConfig.reciprocalField.replace(/_/g, ' ')}/linksTo`);
+                        }
+                    }
+                });
+            }
+        }
+    }
+
+    return { simpleLinks, agendaLinks };
 }

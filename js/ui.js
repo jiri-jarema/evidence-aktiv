@@ -483,7 +483,9 @@ export function showAssetDetails(assetId, parentId, changedKeys = []) {
                     if (isAgenda) {
                         success = await api.deleteAgenda(assetId);
                     } else {
-                        success = await api.deleteAsset(assetId);
+                        // Vylepšené mazání aktiv s kontrolou a odstraněním vazeb
+                        const reciprocalLinks = utils.getReciprocalLinksForDeletion(assetId);
+                        success = await api.deleteAsset(assetId, reciprocalLinks);
                     }
                     
                     if (success) {

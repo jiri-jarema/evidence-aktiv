@@ -202,9 +202,10 @@ export async function deleteAgenda(assetId) {
 /**
  * Deletes a generic asset (support asset, info system) from the server.
  * @param {string} assetId - The ID of the asset to delete.
+ * @param {object} reciprocalLinks - Object with links to remove { simpleLinks: [], agendaLinks: [] }.
  * @returns {Promise<boolean>} - True if successful, false otherwise.
  */
-export async function deleteAsset(assetId) {
+export async function deleteAsset(assetId, reciprocalLinks) {
     const user = getCurrentUser();
     if (!user) return false;
 
@@ -215,7 +216,7 @@ export async function deleteAsset(assetId) {
         const response = await fetch('/.netlify/functions/delete-asset', {
             method: 'POST',
             headers: { 'Authorization': `Bearer ${idToken}` },
-            body: JSON.stringify({ assetPath })
+            body: JSON.stringify({ assetPath, assetId, reciprocalLinks })
         });
         if (!response.ok) throw new Error(await response.text());
         return true;
