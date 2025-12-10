@@ -67,13 +67,29 @@ exports.handler = async function(event, context) {
     const { user, error } = await verifyUser(event.headers.authorization);
     if (error) return error;
 
-    if (user.role !== 'administrator') {
-        return { statusCode: 403, body: JSON.stringify({ error: 'Forbidden: Insufficient permissions. Administrator role required.' }) };
+    const { assetPath, newAssetData, reciprocalLinks } = JSON.parse(event.body);
+
+    // Kontrola oprávnění
+    let isAllowed = false;
+    if (user.role === 'administrator') {
+        isAllowed = true;
+    } else if (user.role === 'informatik') {
+        // Informatik může vytvářet pouze v definovaných cestách
+        if (assetPath && (
+            assetPath.startsWith('primarni/children/informacni-systemy') ||
+            assetPath.startsWith('podpurna/children/servery') ||
+            assetPath.startsWith('podpurna/children/databaze') ||
+            assetPath.startsWith('podpurna/children/site')
+        )) {
+            isAllowed = true;
+        }
+    }
+
+    if (!isAllowed) {
+        return { statusCode: 403, body: JSON.stringify({ error: 'Forbidden: Insufficient permissions.' }) };
     }
 
     try {
-        const { assetPath, newAssetData, reciprocalLinks } = JSON.parse(event.body);
-        
         const updates = {};
         
         // Set the new asset data

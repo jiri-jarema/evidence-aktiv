@@ -69,7 +69,7 @@ export async function createNewSupportAsset(payload) {
         return true;
     } catch (error) {
         console.error('Chyba při vytváření nového aktiva:', error);
-        alert('Nepodařilo se vytvořit nové aktivum.');
+        alert('Nepodařilo se vytvořit nové aktivum. Zkontrolujte oprávnění.');
         return false;
     }
 }
@@ -195,6 +195,33 @@ export async function deleteAgenda(assetId) {
     } catch (error) {
         console.error('Chyba při mazání agendy:', error);
         alert('Nepodařilo se smazat agendu.');
+        return false;
+    }
+}
+
+/**
+ * Deletes a generic asset (support asset, info system) from the server.
+ * @param {string} assetId - The ID of the asset to delete.
+ * @returns {Promise<boolean>} - True if successful, false otherwise.
+ */
+export async function deleteAsset(assetId) {
+    const user = getCurrentUser();
+    if (!user) return false;
+
+    const assetPath = getPathForAsset(assetId);
+    const idToken = await user.getIdToken();
+
+    try {
+        const response = await fetch('/.netlify/functions/delete-asset', {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${idToken}` },
+            body: JSON.stringify({ assetPath })
+        });
+        if (!response.ok) throw new Error(await response.text());
+        return true;
+    } catch (error) {
+        console.error('Chyba při mazání aktiva:', error);
+        alert('Nepodařilo se smazat aktivum. Zkontrolujte oprávnění.');
         return false;
     }
 }

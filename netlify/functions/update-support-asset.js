@@ -68,13 +68,39 @@ exports.handler = async function(event, context) {
     const { user, error } = await verifyUser(event.headers.authorization);
     if (error) return error;
 
-    if (user.role !== 'administrator') {
+    const { assetPath, newName, updatedDetails, reciprocalLinks } = JSON.parse(event.body);
+
+    // Kontrola oprávnění
+    let isAllowed = false;
+    // Administrátor může vše
+    if (user.role === 'administrator') {
+        isAllowed = true;
+    } 
+    // Informatik může editovat pouze specifikovaná aktiva
+    else if (user.role === 'informatik') {
+        if (assetPath && (
+            assetPath.startsWith('primarni/children/informacni-systemy') ||
+            assetPath.startsWith('podpurna/children/servery') ||
+            assetPath.startsWith('podpurna/children/databaze') ||
+            assetPath.startsWith('podpurna/children/site')
+        )) {
+            isAllowed = true;
+        }
+    }
+    // Editace odborů (Agendy) může dělat Admin nebo Garant (to se řeší jinde, ale pro jistotu zde ponecháme logiku pro odbory, pokud by to sem spadlo - i když odbory jsou obvykle pod agendy)
+    // Nicméně `update-support-asset` se používá i pro názvy odborů (v `ui.js` -> `saveDepartmentChanges`),
+    // kde cesta začíná `agendy/children/`.
+    // V původním kódu zde bylo pouze "administrator check", což by znamenalo, že garanta by to nepustilo.
+    // Ale `ui.js` volá tuto funkci i pro odbory. Pokud to má fungovat, musíme to povolit.
+    // Původní kód: `if (user.role !== 'administrator') return 403`. 
+    // Pokud chceme zachovat původní chování pro odbory (jen admin), necháme to tak.
+    // Informatik sem spadá jen pro technická aktiva.
+
+    if (!isAllowed) {
         return { statusCode: 403, body: JSON.stringify({ error: 'Forbidden: Insufficient permissions.' }) };
     }
 
     try {
-        const { assetPath, newName, updatedDetails, reciprocalLinks } = JSON.parse(event.body);
-        
         const updates = {};
         
         if (newName) {

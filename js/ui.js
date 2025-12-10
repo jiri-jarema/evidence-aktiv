@@ -37,6 +37,26 @@ function hideLoader() {
     }
 }
 
+// Pomocná funkce pro zjištění, zda má informatik právo na editaci dané kategorie
+function isAssetCategoryAllowedForInformatik(categoryId, assetPath) {
+    // Kategorie, které může informatik spravovat
+    const allowedIds = ['informacni-systemy', 'databaze', 'servery', 'site'];
+    
+    // Pokud je to přímo jedna z hlavních kategorií
+    if (allowedIds.includes(categoryId)) return true;
+
+    // Pokud je asset uvnitř jedné z těchto kategorií (kontrola cesty)
+    if (assetPath) {
+        if (assetPath.includes('primarni/children/informacni-systemy') ||
+            assetPath.includes('podpurna/children/databaze') ||
+            assetPath.includes('podpurna/children/servery') ||
+            assetPath.includes('podpurna/children/site')) {
+            return true;
+        }
+    }
+    return false;
+}
+
 /**
  * Calculates the maximum classification level from linked agendas.
  * Hierarchy: VEŘEJNÉ (0) < INTERNÍ (1) < CITLIVÉ (2) < CHRÁNĚNÉ (3)
@@ -262,6 +282,7 @@ export function showCategoryContent(categoryId) {
 
     const userRole = state.getUserRole();
     const userOdbor = state.getUserOdbor();
+    const assetPath = utils.getPathForAsset(categoryId);
     
     if (categoryId === 'sluzby' && userRole === 'administrator') {
         const addButton = document.createElement('button');
@@ -294,8 +315,12 @@ export function showCategoryContent(categoryId) {
              titleContainer.appendChild(editOdborButton);
         }
 
-    } else if ((parentId === 'primarni' || parentId === 'podpurna') && userRole === 'administrator') {
-        if (categoryId !== 'sluzby') {
+    } else if (parentId === 'primarni' || parentId === 'podpurna') {
+        // Kontrola oprávnění pro přidávání (Administrator nebo Informatik pro povolené kategorie)
+        const canAdd = userRole === 'administrator' || 
+                       (userRole === 'informatik' && isAssetCategoryAllowedForInformatik(categoryId));
+
+        if (canAdd && categoryId !== 'sluzby') {
             const addButton = document.createElement('button');
             addButton.textContent = `Přidat do ${asset.name}`;
             addButton.className = 'px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600';
@@ -410,7 +435,8 @@ export function showAssetDetails(assetId, parentId, changedKeys = []) {
     title.className = 'text-3xl font-bold';
     titleContainer.appendChild(title);
 
-    const isAgenda = utils.getPathForAsset(assetId).startsWith('agendy');
+    const assetPath = utils.getPathForAsset(assetId);
+    const isAgenda = assetPath.startsWith('agendy');
     const isService = asset.type === 'jednotliva-sluzba';
     const isSupportOrPrimary = !isAgenda && !isService;
     const userRole = state.getUserRole();
@@ -420,6 +446,8 @@ export function showAssetDetails(assetId, parentId, changedKeys = []) {
     if (isAgenda && (userRole === 'administrator' || (userRole === 'garant' && userOdbor === parentId))) {
         canEdit = true;
     } else if ((isSupportOrPrimary || isService) && userRole === 'administrator') {
+        canEdit = true;
+    } else if (isSupportOrPrimary && userRole === 'informatik' && isAssetCategoryAllowedForInformatik(null, assetPath)) {
         canEdit = true;
     }
 
@@ -437,13 +465,27 @@ export function showAssetDetails(assetId, parentId, changedKeys = []) {
         }
         buttonGroup.appendChild(editButton);
 
+        // Mazání povoleno pro Admina (vše) a Informatik (jen podporovaná aktiva)
+        let canDelete = false;
         if (isAgenda && userRole === 'administrator') {
+            canDelete = true;
+        } else if (isSupportOrPrimary && (userRole === 'administrator' || (userRole === 'informatik' && isAssetCategoryAllowedForInformatik(null, assetPath)))) {
+            canDelete = true;
+        }
+
+        if (canDelete) {
             const deleteButton = document.createElement('button');
             deleteButton.textContent = 'Smazat';
             deleteButton.className = 'px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700';
             deleteButton.onclick = () => {
-                showConfirmationModal(`Opravdu si přejete smazat agendu "${asset.name}"? Tato akce je nevratná.`, async () => {
-                    const success = await api.deleteAgenda(assetId);
+                showConfirmationModal(`Opravdu si přejete smazat "${asset.name}"? Tato akce je nevratná.`, async () => {
+                    let success = false;
+                    if (isAgenda) {
+                        success = await api.deleteAgenda(assetId);
+                    } else {
+                        success = await api.deleteAsset(assetId);
+                    }
+                    
                     if (success) {
                         const reloaded = await reloadDataAndRebuildUI();
                         if (reloaded) {
@@ -1938,7 +1980,7 @@ document.getElementById('nav-btn-users')?.classList.add('active');
   addBtn.onclick = async () => {
     const email = prompt('E-mail (nebo ponechte prázdné a zadejte UID v dalším kroku):', '');
     const uid = email ? '' : (prompt('UID:', '') || '').trim();
-    const role = (prompt('Role (administrator/garant/zamestnanec/user):', 'user') || '').trim();
+    const role = (prompt('Role (administrator/garant/informatik/zamestnanec/user):', 'user') || '').trim();
     const odbor = (prompt('Odbor (volitelné):', '') || '').trim();
     if (!email && !uid) return alert('Zadejte alespoň e-mail nebo UID.');
     showLoader();
