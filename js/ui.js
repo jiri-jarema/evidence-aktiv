@@ -775,6 +775,18 @@ function createDetailsForForm(categoryId, existingDetails, detailOrder) {
                     detailsForForm[key].linksTo = [];
                 }
             }
+
+            // OPRAVA: Ujistit se, že u "Způsob zpracování" existuje pole 'details' pro textové popisy
+            // (pro položky, které nejsou AIS)
+            if (key === "Způsob zpracování" && Array.isArray(detailsForForm[key].value)) {
+                detailsForForm[key].value.forEach(m => {
+                     // Pokud to není AIS a chybí property details, přidáme ji.
+                     if (!m.label.includes("agendový informační systém") && m.details === undefined) {
+                         m.details = "";
+                     }
+                });
+            }
+
             continue;
         }
 
@@ -1456,11 +1468,12 @@ function renderEditFormFields(formFragment, assetId, details, detailOrder, conte
                     isSelectorContainer.appendChild(linkedSystemsContainer);
                     isSelectorContainer.appendChild(addSystemWrapper);
                     methodWrapper.appendChild(isSelectorContainer);
-                } else if (method.details !== undefined) {
+                } else {
+                    // For all other methods, render details input
                     const detailsInput = document.createElement('input');
                     detailsInput.type = 'text';
                     detailsInput.id = `${methodId}-details`;
-                    detailsInput.value = method.details;
+                    detailsInput.value = method.details || ''; // Handle undefined
                     detailsInput.className = 'form-input mt-1 ml-8';
                     methodWrapper.appendChild(detailsInput);
                 }
